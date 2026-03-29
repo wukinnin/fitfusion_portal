@@ -25,31 +25,45 @@ export default function Layout({ session }) {
           <p className="text-xs text-gray-500 mt-0.5">Admin Portal</p>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+          <p className="px-4 text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
+            Overview
+          </p>
           <NavLink to="/" end className={linkClass}>
             Dashboard
           </NavLink>
-          <NavLink to="/settings" className={linkClass}>
-            Settings
-          </NavLink>
 
-          {/* Placeholder links for future pages */}
           <div className="pt-4 mt-4 border-t border-gray-200">
             <p className="px-4 text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">
-              Management
+              Data Management
             </p>
-            <span className="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
-              Users
-            </span>
-            <span className="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
-              Sessions
-            </span>
-            <span className="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
+            <NavLink to="/players" className={linkClass}>
+              Players
+            </NavLink>
+            <NavLink to="/admins" className={linkClass}>
+              Admins
+            </NavLink>
+            <NavLink to="/leaderboards" className={linkClass}>
               Leaderboards
-            </span>
-            <span className="block px-4 py-2 text-sm text-gray-400 cursor-not-allowed">
+            </NavLink>
+            <NavLink to="/achievements" className={linkClass}>
               Achievements
-            </span>
+            </NavLink>
+            <NavLink to="/export" className={linkClass}>
+              Export Data
+            </NavLink>
+          </div>
+
+          <div className="pt-4 mt-4 border-t border-gray-200">
+            <NavLink to="/admin-logs" className={linkClass}>
+              Admin Logs
+            </NavLink>
+          </div>
+
+          <div className="pt-4 mt-4 border-t border-gray-200">
+            <NavLink to="/settings" className={linkClass}>
+              Settings
+            </NavLink>
           </div>
         </nav>
 

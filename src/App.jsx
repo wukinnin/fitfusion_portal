@@ -7,6 +7,12 @@ import Login from './pages/Login'
 import ForgotPassword from './pages/ForgotPassword'
 import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
+import Players from './pages/Players'
+import Admins from './pages/Admins'
+import Leaderboards from './pages/Leaderboards'
+import Achievements from './pages/Achievements'
+import ExportData from './pages/ExportData'
+import AdminLogs from './pages/AdminLogs'
 import Settings from './pages/Settings'
 
 function App() {
@@ -52,6 +58,12 @@ function App() {
         }
       >
         <Route path="/" element={<Dashboard session={session} />} />
+        <Route path="/players" element={<Players />} />
+        <Route path="/admins" element={<Admins />} />
+        <Route path="/leaderboards" element={<Leaderboards />} />
+        <Route path="/achievements" element={<Achievements />} />
+        <Route path="/export" element={<ExportData />} />
+        <Route path="/admin-logs" element={<AdminLogs />} />
         <Route path="/settings" element={<Settings session={session} />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

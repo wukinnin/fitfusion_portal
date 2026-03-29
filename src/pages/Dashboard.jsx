@@ -55,12 +55,32 @@ export default function Dashboard({ session }) {
         </div>
       </div>
 
+      {/* Register Admin */}
       <div className="mt-8 bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-sm font-medium text-gray-900 mb-2">Quick Info</h3>
-        <ul className="text-sm text-gray-600 space-y-1">
-          <li>Management pages (Users, Sessions, Leaderboards, Achievements) are coming soon.</li>
-          <li>Use <span className="font-medium">Settings</span> to change your email or password.</li>
-        </ul>
+        <h3 className="text-base font-medium text-gray-900 mb-1">Register Admin</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Send an invite to a new admin. They will receive a temporary password via email and be prompted to verify and set a new password on first login.
+        </p>
+
+        <form onSubmit={(e) => e.preventDefault()} className="flex items-end gap-3">
+          <div className="flex-1 max-w-sm">
+            <label htmlFor="adminEmail" className="block text-sm font-medium text-gray-700 mb-1">
+              Email Address
+            </label>
+            <input
+              id="adminEmail"
+              type="email"
+              className="w-full px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="newadmin@example.com"
+            />
+          </div>
+          <button
+            type="submit"
+            className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 cursor-pointer"
+          >
+            Send Invite
+          </button>
+        </form>
       </div>
     </div>
   )

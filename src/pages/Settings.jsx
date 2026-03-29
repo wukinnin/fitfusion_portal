@@ -122,7 +122,7 @@ export default function Settings({ session }) {
       </div>
 
       {/* Change Password */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6">
+      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <h3 className="text-base font-medium text-gray-900 mb-4">Change Password</h3>
         <MessageBox msg={pwMsg} />
 
@@ -164,6 +164,47 @@ export default function Settings({ session }) {
           >
             {pwLoading ? 'Updating...' : 'Update Password'}
           </button>
+        </form>
+      </div>
+
+      {/* Delete Account */}
+      <div className="bg-white rounded-lg border border-red-200 p-6">
+        <h3 className="text-base font-medium text-red-700 mb-1">Danger Zone</h3>
+        <p className="text-sm text-gray-500 mb-4">
+          Permanently delete your admin account. This disassociates your email and cannot be undone.
+        </p>
+
+        <form onSubmit={(e) => e.preventDefault()} className="space-y-3">
+          <div>
+            <label htmlFor="deletePassword" className="block text-sm font-medium text-gray-700 mb-1">
+              Current Password
+            </label>
+            <input
+              id="deletePassword"
+              type="password"
+              className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+            ARE YOU SURE YOU WANT TO DELETE YOUR ACCOUNT? THIS DISASSOCIATES YOUR EMAIL. THIS CANNOT BE UNDONE.
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-4 py-2 text-sm text-white bg-red-600 rounded hover:bg-red-700 cursor-pointer"
+            >
+              Delete Account
+            </button>
+          </div>
         </form>
       </div>
     </div>
