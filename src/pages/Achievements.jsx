@@ -1,16 +1,23 @@
-const ACHIEVEMENTS = [
-  { id: 'first_blood', name: 'First Blood', description: 'Complete your first session (win or lose)', unlockCount: 0 },
-  { id: 'iron_will', name: 'Iron Will', description: 'Complete 30 total sessions', unlockCount: 0 },
-  { id: 'blood_pumper', name: 'Blood Pumper', description: 'Reach 300 lifetime reps', unlockCount: 0 },
-  { id: 'survivor', name: 'Survivor', description: 'Complete 100 total rounds', unlockCount: 0 },
-  { id: 'halfway_hero', name: 'Halfway Hero', description: 'Reach 5 rounds in a single session', unlockCount: 0 },
-  { id: 'monster_hunter', name: 'Monster Hunter', description: 'Win a full 10-round session', unlockCount: 0 },
-  { id: 'triple_crown', name: 'Triple Crown', description: 'Win at least one session in all 3 workout types', unlockCount: 0 },
-  { id: 'speed_demon', name: 'Speed Demon', description: 'Best rep interval under 1.8 seconds', unlockCount: 0 },
-  { id: 'blinding_steel', name: 'Blinding Steel', description: 'Win with average rep interval under 2.3 seconds', unlockCount: 0 },
-  { id: 'untouchable', name: 'Untouchable', description: 'Win with 0 lives lost', unlockCount: 0 },
-  { id: 'last_stand', name: 'Last Stand', description: 'Win with exactly 2 lives lost', unlockCount: 0 },
+import { ACHIEVEMENT_COUNTS } from '../data/dummyData'
+
+const ACHIEVEMENT_META = [
+  { id: 'first_blood', name: 'First Blood', description: 'Complete your first session (win or lose)' },
+  { id: 'iron_will', name: 'Iron Will', description: 'Complete 30 total sessions' },
+  { id: 'blood_pumper', name: 'Blood Pumper', description: 'Reach 300 lifetime reps' },
+  { id: 'survivor', name: 'Survivor', description: 'Complete 100 total rounds' },
+  { id: 'halfway_hero', name: 'Halfway Hero', description: 'Reach 5 rounds in a single session' },
+  { id: 'monster_hunter', name: 'Monster Hunter', description: 'Win a full 10-round session' },
+  { id: 'triple_crown', name: 'Triple Crown', description: 'Win at least one session in all 3 workout types' },
+  { id: 'speed_demon', name: 'Speed Demon', description: 'Best rep interval under 1.8 seconds' },
+  { id: 'blinding_steel', name: 'Blinding Steel', description: 'Win with average rep interval under 2.3 seconds' },
+  { id: 'untouchable', name: 'Untouchable', description: 'Win with 0 lives lost' },
+  { id: 'last_stand', name: 'Last Stand', description: 'Win with exactly 2 lives lost' },
 ]
+
+const ACHIEVEMENTS = ACHIEVEMENT_META.map(a => ({
+  ...a,
+  unlockCount: ACHIEVEMENT_COUNTS.find(c => c.id === a.id)?.count ?? 0,
+}))
 
 export default function Achievements() {
   return (

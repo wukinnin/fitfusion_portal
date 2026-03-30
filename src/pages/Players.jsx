@@ -1,24 +1,20 @@
 import { useState } from 'react'
+import { PLAYERS, PLAYER_STATS, LEADERBOARDS } from '../data/dummyData'
 
-const DUMMY_PLAYERS = [
-  { id: 'a1b2c3d4-0001', username: 'DragonSlayer', email: 'dragon@example.com', verified: true, created: '2025-12-01' },
-  { id: 'a1b2c3d4-0002', username: 'IronFist', email: 'iron@example.com', verified: true, created: '2025-12-05' },
-  { id: 'a1b2c3d4-0003', username: 'ShadowRep', email: 'shadow@example.com', verified: false, created: '2025-12-10' },
-  { id: 'a1b2c3d4-0004', username: 'FlameRunner', email: 'flame@example.com', verified: true, created: '2026-01-02' },
-  { id: 'a1b2c3d4-0005', username: 'RepMachine', email: 'rep@example.com', verified: true, created: '2026-01-15' },
-]
-
-const ACHIEVEMENTS = [
-  'First Blood', 'Iron Will', 'Blood Pumper', 'Survivor', 'Halfway Hero',
-  'Monster Hunter', 'Triple Crown', 'Speed Demon', 'Blinding Steel', 'Untouchable', 'Last Stand',
-]
+const ACHIEVEMENT_NAMES = {
+  first_blood: 'First Blood', iron_will: 'Iron Will', blood_pumper: 'Blood Pumper',
+  survivor: 'Survivor', halfway_hero: 'Halfway Hero', monster_hunter: 'Monster Hunter',
+  triple_crown: 'Triple Crown', speed_demon: 'Speed Demon', blinding_steel: 'Blinding Steel',
+  untouchable: 'Untouchable', last_stand: 'Last Stand',
+}
+const ALL_ACHIEVEMENT_IDS = Object.keys(ACHIEVEMENT_NAMES)
 
 export default function Players() {
   const [search, setSearch] = useState('')
   const [expandedId, setExpandedId] = useState(null)
   const [modal, setModal] = useState({ type: null, player: null })
 
-  const filtered = DUMMY_PLAYERS.filter(
+  const filtered = PLAYERS.filter(
     (p) =>
       p.username.toLowerCase().includes(search.toLowerCase()) ||
       p.email.toLowerCase().includes(search.toLowerCase())
@@ -173,6 +169,40 @@ function PlayerRow({ player, expanded, onToggle, onAction }) {
 }
 
 function PlayerDetail({ player }) {
+  const stats = PLAYER_STATS[player.username]
+  if (!stats) return <p className="text-xs text-gray-400">No data available.</p>
+
+  const workoutKeys = [
+    { key: 'squats', label: 'Squats' },
+    { key: 'jacks', label: 'Jumping Jacks' },
+    { key: 'crunches', label: 'Side Crunches' },
+  ]
+
+  const lifetimeEntries = [
+    { label: 'Total Sessions', value: stats.lifetime.sessions },
+    { label: 'Total Reps', value: stats.lifetime.reps },
+    { label: 'Total Rounds', value: stats.lifetime.rounds },
+    { label: 'Total Victories', value: stats.lifetime.victories },
+  ]
+
+  // Find leaderboard standings for this player
+  const boardNames = {
+    squats_clear_time: 'Squats — Clear Time',
+    squats_best_interval: 'Squats — Rep Interval',
+    jacks_clear_time: 'Jacks — Clear Time',
+    jacks_best_interval: 'Jacks — Rep Interval',
+    crunches_clear_time: 'Crunches — Clear Time',
+    crunches_best_interval: 'Crunches — Rep Interval',
+    lifetime_reps: 'Lifetime — Reps',
+    lifetime_victories: 'Lifetime — Victories',
+  }
+  const standings = Object.entries(LEADERBOARDS)
+    .map(([key, rows]) => {
+      const entry = rows.find(r => r.username === player.username)
+      return entry ? { board: boardNames[key], rank: entry.rank, value: entry.value } : null
+    })
+    .filter(Boolean)
+
   return (
     <div className="space-y-4">
       {/* Profile */}
@@ -190,19 +220,22 @@ function PlayerDetail({ player }) {
       <div>
         <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Session Stats</h4>
         <div className="grid grid-cols-3 gap-3">
-          {['Squats', 'Jumping Jacks', 'Side Crunches'].map((type) => (
-            <div key={type} className="bg-white border border-gray-200 rounded p-3">
-              <p className="text-xs font-medium text-gray-500 mb-2">{type}</p>
-              <div className="space-y-1 text-xs text-gray-600">
-                <p>Fastest Clear Time: <span className="text-gray-400">--</span></p>
-                <p>Avg Clear Time: <span className="text-gray-400">--</span></p>
-                <p>Best Rep Interval: <span className="text-gray-400">--</span></p>
-                <p>Avg Rep Interval: <span className="text-gray-400">--</span></p>
-                <p>Victories: <span className="text-gray-400">0</span></p>
-                <p>Defeats: <span className="text-gray-400">0</span></p>
+          {workoutKeys.map(({ key, label }) => {
+            const w = stats[key]
+            return (
+              <div key={key} className="bg-white border border-gray-200 rounded p-3">
+                <p className="text-xs font-medium text-gray-500 mb-2">{label}</p>
+                <div className="space-y-1 text-xs text-gray-600">
+                  <p>Fastest Clear Time: <span className="text-gray-900 font-medium">{w.fastestClear}</span></p>
+                  <p>Avg Clear Time: <span className="text-gray-900 font-medium">{w.avgClear}</span></p>
+                  <p>Best Rep Interval: <span className="text-gray-900 font-medium">{w.bestInterval}s</span></p>
+                  <p>Avg Rep Interval: <span className="text-gray-900 font-medium">{w.avgInterval}s</span></p>
+                  <p>Victories: <span className="text-gray-900 font-medium">{w.victories}</span></p>
+                  <p>Defeats: <span className="text-gray-900 font-medium">{w.defeats}</span></p>
+                </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
 
@@ -210,10 +243,10 @@ function PlayerDetail({ player }) {
       <div>
         <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Lifetime Stats</h4>
         <div className="grid grid-cols-4 gap-3 text-sm">
-          {['Total Sessions', 'Total Reps', 'Total Rounds', 'Total Victories'].map((label) => (
+          {lifetimeEntries.map(({ label, value }) => (
             <div key={label} className="bg-white border border-gray-200 rounded p-3">
               <p className="text-xs text-gray-500">{label}</p>
-              <p className="text-lg font-semibold text-gray-900 mt-1">0</p>
+              <p className="text-lg font-semibold text-gray-900 mt-1">{value}</p>
             </div>
           ))}
         </div>
@@ -221,23 +254,41 @@ function PlayerDetail({ player }) {
 
       {/* Achievements */}
       <div>
-        <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Achievements</h4>
+        <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Achievements ({stats.achievements.length}/11)</h4>
         <div className="flex flex-wrap gap-2">
-          {ACHIEVEMENTS.map((name) => (
-            <span
-              key={name}
-              className="px-2 py-1 text-xs rounded bg-gray-100 text-gray-400 border border-gray-200"
-            >
-              {name}
-            </span>
-          ))}
+          {ALL_ACHIEVEMENT_IDS.map((id) => {
+            const unlocked = stats.achievements.includes(id)
+            return (
+              <span
+                key={id}
+                className={`px-2 py-1 text-xs rounded border ${
+                  unlocked
+                    ? 'bg-green-50 text-green-700 border-green-200'
+                    : 'bg-gray-100 text-gray-400 border-gray-200'
+                }`}
+              >
+                {unlocked && '✓ '}{ACHIEVEMENT_NAMES[id]}
+              </span>
+            )
+          })}
         </div>
       </div>
 
       {/* Leaderboard Standings */}
       <div>
         <h4 className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-2">Leaderboard Standings</h4>
-        <p className="text-xs text-gray-400">No leaderboard entries.</p>
+        {standings.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {standings.map((s) => (
+              <div key={s.board} className="bg-white border border-gray-200 rounded p-2 text-xs">
+                <p className="text-gray-500">{s.board}</p>
+                <p className="text-gray-900 font-medium">#{s.rank} — {s.value}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-400">No leaderboard entries.</p>
+        )}
       </div>
     </div>
   )

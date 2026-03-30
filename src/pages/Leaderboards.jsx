@@ -1,18 +1,25 @@
 import { useState } from 'react'
+import { LEADERBOARDS } from '../data/dummyData'
 
-const WORKOUT_TYPES = ['Squats', 'Jumping Jacks', 'Side Crunches']
-const WORKOUT_METRICS = ['Fastest Clear Time', 'Best Rep Interval']
-const LIFETIME_METRICS = ['Total Reps', 'Total Victories']
+const WORKOUT_BOARDS = [
+  { type: 'Squats', boards: [
+    { title: 'Fastest Clear Time', key: 'squats_clear_time' },
+    { title: 'Best Rep Interval', key: 'squats_best_interval' },
+  ]},
+  { type: 'Jumping Jacks', boards: [
+    { title: 'Fastest Clear Time', key: 'jacks_clear_time' },
+    { title: 'Best Rep Interval', key: 'jacks_best_interval' },
+  ]},
+  { type: 'Side Crunches', boards: [
+    { title: 'Fastest Clear Time', key: 'crunches_clear_time' },
+    { title: 'Best Rep Interval', key: 'crunches_best_interval' },
+  ]},
+]
 
-function generateDummyRows(count) {
-  return Array.from({ length: count }, (_, i) => ({
-    rank: i + 1,
-    username: '--',
-    value: '--',
-  }))
-}
-
-const DUMMY_ROWS = generateDummyRows(20)
+const LIFETIME_BOARDS = [
+  { title: 'Total Reps', key: 'lifetime_reps' },
+  { title: 'Total Victories', key: 'lifetime_victories' },
+]
 
 export default function Leaderboards() {
   const [activeTab, setActiveTab] = useState('workout')
@@ -47,15 +54,15 @@ export default function Leaderboards() {
 
       {activeTab === 'workout' && (
         <div className="space-y-8">
-          {WORKOUT_TYPES.map((type) => (
+          {WORKOUT_BOARDS.map(({ type, boards }) => (
             <div key={type}>
               <h3 className="text-base font-medium text-gray-900 mb-3">{type}</h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {WORKOUT_METRICS.map((metric) => (
+                {boards.map(({ title, key }) => (
                   <LeaderboardTable
-                    key={`${type}-${metric}`}
-                    title={metric}
-                    rows={DUMMY_ROWS}
+                    key={key}
+                    title={title}
+                    rows={LEADERBOARDS[key]}
                   />
                 ))}
               </div>
@@ -66,11 +73,11 @@ export default function Leaderboards() {
 
       {activeTab === 'lifetime' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {LIFETIME_METRICS.map((metric) => (
+          {LIFETIME_BOARDS.map(({ title, key }) => (
             <LeaderboardTable
-              key={metric}
-              title={metric}
-              rows={DUMMY_ROWS}
+              key={key}
+              title={title}
+              rows={LEADERBOARDS[key]}
             />
           ))}
         </div>

@@ -1,28 +1,10 @@
-import { useState, useEffect } from 'react'
-import { supabase } from '../lib/supabase'
+import { PLAYERS, ADMINS, PLAYER_STATS } from '../data/dummyData'
+
+const totalSessions = Object.values(PLAYER_STATS).reduce((sum, s) => sum + s.lifetime.sessions, 0)
 
 export default function Dashboard({ session }) {
-  const [stats, setStats] = useState({ users: 0, sessions: 0, admins: 0 })
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function fetchStats() {
-      const [usersRes, sessionsRes, adminsRes] = await Promise.all([
-        supabase.from('users').select('id', { count: 'exact', head: true }),
-        supabase.from('sessions').select('id', { count: 'exact', head: true }),
-        supabase.from('admin_users').select('id', { count: 'exact', head: true }),
-      ])
-
-      setStats({
-        users: usersRes.count ?? 0,
-        sessions: sessionsRes.count ?? 0,
-        admins: adminsRes.count ?? 0,
-      })
-      setLoading(false)
-    }
-
-    fetchStats()
-  }, [])
+  const stats = { users: PLAYERS.length, sessions: totalSessions, admins: ADMINS.length }
+  const loading = false
 
   return (
     <div>

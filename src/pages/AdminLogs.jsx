@@ -1,10 +1,4 @@
-const DUMMY_LOGS = [
-  { id: 1, adminEmail: 'admin@fitfusion.com', action: 'Deleted player', targetId: 'a1b2c3d4-0003', details: '{ "username": "ShadowRep" }', timestamp: '2026-01-20 14:32:05' },
-  { id: 2, adminEmail: 'admin@fitfusion.com', action: 'Force password reset', targetId: 'a1b2c3d4-0002', details: '{ "username": "IronFist" }', timestamp: '2026-01-19 09:15:22' },
-  { id: 3, adminEmail: 'moderator@fitfusion.com', action: 'Registered admin', targetId: 'f1e2d3c4-0003', details: '{ "email": "newadmin@fitfusion.com" }', timestamp: '2026-01-18 16:45:10' },
-  { id: 4, adminEmail: 'admin@fitfusion.com', action: 'Exported data', targetId: null, details: '{ "tables": ["users", "sessions"], "format": "csv" }', timestamp: '2026-01-17 11:20:00' },
-  { id: 5, adminEmail: 'admin@fitfusion.com', action: 'Deleted player', targetId: 'a1b2c3d4-0005', details: '{ "username": "RepMachine" }', timestamp: '2026-01-15 08:05:33' },
-]
+import { ADMIN_LOGS } from '../data/dummyData'
 
 export default function AdminLogs() {
   return (
@@ -33,7 +27,7 @@ export default function AdminLogs() {
             </tr>
           </thead>
           <tbody>
-            {DUMMY_LOGS.map((log) => (
+            {ADMIN_LOGS.map((log) => (
               <tr key={log.id} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="px-4 py-3 text-gray-500 whitespace-nowrap">{log.timestamp}</td>
                 <td className="px-4 py-3 text-gray-900 font-medium">{log.adminEmail}</td>

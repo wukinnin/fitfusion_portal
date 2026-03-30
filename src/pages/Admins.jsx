@@ -1,16 +1,11 @@
 import { useState } from 'react'
-
-const DUMMY_ADMINS = [
-  { id: 'f1e2d3c4-0001', email: 'admin@fitfusion.com', role: 'superadmin', verified: true, created: '2025-11-01' },
-  { id: 'f1e2d3c4-0002', email: 'moderator@fitfusion.com', role: 'admin', verified: true, created: '2025-12-15' },
-  { id: 'f1e2d3c4-0003', email: 'newadmin@fitfusion.com', role: 'admin', verified: false, created: '2026-01-20' },
-]
+import { ADMINS } from '../data/dummyData'
 
 export default function Admins() {
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState({ type: null, admin: null })
 
-  const filtered = DUMMY_ADMINS.filter((a) =>
+  const filtered = ADMINS.filter((a) =>
     a.email.toLowerCase().includes(search.toLowerCase())
   )
 
