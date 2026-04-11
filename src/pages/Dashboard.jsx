@@ -8,9 +8,9 @@ export default function Dashboard({ session }) {
   useEffect(() => {
     async function fetchStats() {
       const [usersRes, sessionsRes, adminsRes] = await Promise.all([
-        supabase.from('users').select('id', { count: 'exact', head: true }),
+        supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'player'),
         supabase.from('sessions').select('id', { count: 'exact', head: true }),
-        supabase.from('admin_users').select('id', { count: 'exact', head: true }),
+        supabase.from('users').select('id', { count: 'exact', head: true }).eq('role', 'admin'),
       ])
 
       setStats({

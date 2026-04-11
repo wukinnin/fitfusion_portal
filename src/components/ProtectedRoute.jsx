@@ -10,9 +10,10 @@ export default function ProtectedRoute({ session, children }) {
 
     async function checkAdmin() {
       const { data, error } = await supabase
-        .from('admin_users')
+        .from('users')
         .select('id, role')
         .eq('id', session.user.id)
+        .eq('role', 'admin')
         .single()
 
       if (error || !data) {

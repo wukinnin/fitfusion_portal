@@ -1,19 +1,44 @@
 import { useState } from 'react'
+import { supabase } from '../lib/supabase'
 
 const TABLES = [
-  { key: 'users', label: 'Users', description: 'Player profiles and settings' },
+  { key: 'users', label: 'Users', description: 'Player and admin profiles' },
   { key: 'sessions', label: 'Sessions', description: 'All game session records' },
-  { key: 'user_stats', label: 'User Stats', description: 'Per-user aggregated statistics' },
-  { key: 'user_achievements', label: 'User Achievements', description: 'Achievement unlock status per user' },
-  { key: 'leaderboard_entries', label: 'Leaderboard Entries', description: 'Per-workout top-10 rankings' },
-  { key: 'lifetime_leaderboard_entries', label: 'Lifetime Leaderboard Entries', description: 'Lifetime top-10 rankings' },
-  { key: 'admin_users', label: 'Admin Users', description: 'Admin profiles and roles' },
+  { key: 'achievements', label: 'Achievements', description: 'Master achievement definitions' },
+  { key: 'user_achievements', label: 'User Achievements', description: 'Achievement unlock records per user' },
   { key: 'admin_logs', label: 'Admin Logs', description: 'Audit trail of admin actions' },
 ]
+
+function toCsv(rows) {
+  if (!rows || rows.length === 0) return ''
+  const headers = Object.keys(rows[0])
+  const lines = [headers.join(',')]
+  for (const row of rows) {
+    lines.push(headers.map((h) => {
+      const val = row[h]
+      if (val == null) return ''
+      const str = typeof val === 'object' ? JSON.stringify(val) : String(val)
+      return str.includes(',') || str.includes('"') || str.includes('\n')
+        ? `"${str.replace(/"/g, '""')}"`
+        : str
+    }).join(','))
+  }
+  return lines.join('\n')
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 export default function ExportData() {
   const [selected, setSelected] = useState(new Set())
   const [format, setFormat] = useState('csv')
+  const [exporting, setExporting] = useState(false)
 
   function toggleTable(key) {
     setSelected((prev) => {
@@ -30,6 +55,75 @@ export default function ExportData() {
     } else {
       setSelected(new Set(TABLES.map((t) => t.key)))
     }
+  }
+
+  async function fetchTableData(key) {
+    const { data } = await supabase.from(key).select('*')
+    return data || []
+  }
+
+  async function handleExport() {
+    setExporting(true)
+    const tables = TABLES.filter((t) => selected.has(t.key))
+
+    for (const table of tables) {
+      const rows = await fetchTableData(table.key)
+      const ext = format === 'csv' ? 'csv' : 'json'
+      const content = format === 'csv' ? toCsv(rows) : JSON.stringify(rows, null, 2)
+      const blob = new Blob([content], { type: format === 'csv' ? 'text/csv' : 'application/json' })
+      downloadBlob(blob, `${table.key}.${ext}`)
+    }
+
+    // Log export action
+    const user = (await supabase.auth.getUser()).data.user
+    if (user) {
+      await supabase.from('admin_logs').insert({
+        actor_user_id: user.id,
+        action: 'Exported data',
+        target_kind: 'system',
+        details: { tables: [...selected], format },
+      })
+    }
+
+    setExporting(false)
+  }
+
+  async function handleZipExport() {
+    setExporting(true)
+    const tables = TABLES.filter((t) => selected.has(t.key))
+
+    // Dynamic import of JSZip
+    let JSZip
+    try {
+      JSZip = (await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')).default
+    } catch {
+      // Fallback: export individually
+      await handleExport()
+      return
+    }
+
+    const zip = new JSZip()
+    for (const table of tables) {
+      const rows = await fetchTableData(table.key)
+      const ext = format === 'csv' ? 'csv' : 'json'
+      const content = format === 'csv' ? toCsv(rows) : JSON.stringify(rows, null, 2)
+      zip.file(`${table.key}.${ext}`, content)
+    }
+
+    const blob = await zip.generateAsync({ type: 'blob' })
+    downloadBlob(blob, `fitfusion_export_${new Date().toISOString().slice(0, 10)}.zip`)
+
+    const user = (await supabase.auth.getUser()).data.user
+    if (user) {
+      await supabase.from('admin_logs').insert({
+        actor_user_id: user.id,
+        action: 'Exported data (ZIP)',
+        target_kind: 'system',
+        details: { tables: [...selected], format },
+      })
+    }
+
+    setExporting(false)
   }
 
   return (
@@ -103,16 +197,18 @@ export default function ExportData() {
 
         <div className="flex gap-3">
           <button
-            disabled={selected.size === 0}
+            disabled={selected.size === 0 || exporting}
+            onClick={handleExport}
             className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            Export {selected.size > 0 ? `(${selected.size} table${selected.size > 1 ? 's' : ''})` : ''}
+            {exporting ? 'Exporting...' : `Export ${selected.size > 0 ? `(${selected.size} table${selected.size > 1 ? 's' : ''})` : ''}`}
           </button>
           <button
-            disabled={selected.size === 0}
+            disabled={selected.size === 0 || exporting}
+            onClick={handleZipExport}
             className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            Bundle as ZIP
+            {exporting ? 'Bundling...' : 'Bundle as ZIP'}
           </button>
         </div>
       </div>
