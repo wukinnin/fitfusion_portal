@@ -9,7 +9,7 @@ const TABLES = [
   { key: 'admin_logs', label: 'Admin Logs', description: 'Audit trail of admin actions' },
 ]
 
-function toCsv(rows) {
+export function toCsv(rows) {
   if (!rows || rows.length === 0) return ''
   const headers = Object.keys(rows[0])
   const lines = [headers.join(',')]

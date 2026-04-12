@@ -1,6 +1,16 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
+export function buildAdminLogText(logs) {
+  return logs.map((log) => {
+    const ts = new Date(log.created_at).toISOString()
+    const email = log.users?.email || log.actor_user_id
+    const target = log.target_user_id || log.target_session_id || '—'
+    const details = log.details ? JSON.stringify(log.details) : ''
+    return `[${ts}] ${email} | ${log.action} | target: ${target} | ${details}`
+  })
+}
+
 export default function AdminLogs() {
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -18,13 +28,7 @@ export default function AdminLogs() {
   }, [])
 
   function handleExportTxt() {
-    const lines = logs.map((log) => {
-      const ts = new Date(log.created_at).toISOString()
-      const email = log.users?.email || log.actor_user_id
-      const target = log.target_user_id || log.target_session_id || '—'
-      const details = log.details ? JSON.stringify(log.details) : ''
-      return `[${ts}] ${email} | ${log.action} | target: ${target} | ${details}`
-    })
+    const lines = buildAdminLogText(logs)
     const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

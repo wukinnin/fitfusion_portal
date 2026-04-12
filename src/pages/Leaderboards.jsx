@@ -7,7 +7,7 @@ const WORKOUT_TYPES = [
   { key: 'side_crunches', label: 'Side Crunches' },
 ]
 
-function formatValue(value, isTime) {
+export function formatValue(value, isTime) {
   if (value == null) return '--'
   const n = Number(value)
   if (isTime) {
