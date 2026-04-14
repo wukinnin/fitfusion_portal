@@ -1,10 +1,8 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 export default function Login() {
-  const navigate = useNavigate()
-
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -26,12 +24,12 @@ export default function Login() {
       return
     }
 
-    // Verify the user is an admin
+    // Verify the user is an admin or superadmin
     const { data: adminData, error: adminError } = await supabase
       .from('users')
       .select('id, role')
       .eq('id', data.user.id)
-      .eq('role', 'admin')
+      .in('role', ['admin', 'superadmin'])
       .single()
 
     if (adminError || !adminData) {
@@ -51,7 +49,6 @@ export default function Login() {
     }
 
     setLoading(false)
-    navigate('/')
   }
 
   return (
