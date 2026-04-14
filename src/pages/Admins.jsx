@@ -33,10 +33,7 @@ export default function Admins() {
 
   async function handleForceReset(admin) {
     setActionLoading(true)
-    const { error } = await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email: admin.email,
-    })
+    const { error } = await supabase.auth.resetPasswordForEmail(admin.email)
     if (!error) {
       await logAdminAction('Force password reset (admin)', 'user', admin.id)
     }
@@ -46,8 +43,10 @@ export default function Admins() {
 
   async function handleDeleteAdmin(admin) {
     setActionLoading(true)
-    const { error } = await supabase.from('users').delete().eq('id', admin.id)
-    if (!error) {
+    const { data, error } = await supabase.functions.invoke('delete-admin', {
+      body: { user_id: admin.id },
+    })
+    if (!error && !data?.error) {
       await logAdminAction('Deleted admin', 'user', admin.id, { email: admin.email })
       setAdmins((prev) => prev.filter((a) => a.id !== admin.id))
     }

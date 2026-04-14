@@ -29,10 +29,7 @@ export default function Players() {
 
   async function handleForceReset(player) {
     setActionLoading(true)
-    const { error } = await supabase.auth.admin.generateLink({
-      type: 'recovery',
-      email: player.email,
-    })
+    const { error } = await supabase.auth.resetPasswordForEmail(player.email)
     if (!error) {
       await logAdminAction('Force password reset', 'user', player.id)
     }
@@ -42,8 +39,10 @@ export default function Players() {
 
   async function handleDeletePlayer(player) {
     setActionLoading(true)
-    const { error } = await supabase.from('users').delete().eq('id', player.id)
-    if (!error) {
+    const { data, error } = await supabase.functions.invoke('delete-player', {
+      body: { user_id: player.id },
+    })
+    if (!error && !data?.error) {
       await logAdminAction('Deleted player', 'user', player.id, { username: player.username })
       setPlayers((prev) => prev.filter((p) => p.id !== player.id))
     }
