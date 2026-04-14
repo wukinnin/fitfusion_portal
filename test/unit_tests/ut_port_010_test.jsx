@@ -13,17 +13,6 @@ describe('UT-PORT-010 Admin Logs Ordering & Metadata', () => {
   it('validates newest-first ordering and metadata visibility', async () => {
     const logs = [
       {
-        id: 'log-1',
-        action: 'Exported data',
-        target_kind: 'system',
-        target_session_id: null,
-        target_user_id: null,
-        details: { tables: ['users'], format: 'csv' },
-        created_at: '2026-04-08T09:00:00Z',
-        actor_user_id: 'admin-1',
-        users: { email: 'admin@example.com' },
-      },
-      {
         id: 'log-2',
         action: 'Deleted player',
         target_kind: 'user',
@@ -34,21 +23,34 @@ describe('UT-PORT-010 Admin Logs Ordering & Metadata', () => {
         actor_user_id: 'admin-1',
         users: { email: 'admin@example.com' },
       },
+      {
+        id: 'log-1',
+        action: 'Exported data',
+        target_kind: 'system',
+        target_session_id: null,
+        target_user_id: null,
+        details: { tables: ['users'], format: 'csv' },
+        created_at: '2026-04-08T09:00:00Z',
+        actor_user_id: 'admin-1',
+        users: { email: 'admin@example.com' },
+      },
     ]
+
+    const adminLogsBuilder = createQueryBuilder({ data: logs, error: null })
 
     supabase.from.mockImplementation((table) => {
       if (table === 'admin_logs') {
-        return createQueryBuilder({ data: logs, error: null })
+        return adminLogsBuilder
       }
       return createQueryBuilder({ data: [], error: null })
     })
 
     renderWithRouter(<AdminLogs />)
 
-    expect(await screen.findByText('Admin Logs')).toBeInTheDocument()
-    expect(await screen.findByText('Exported data')).toBeInTheDocument()
-    expect(screen.getByText('Deleted player')).toBeInTheDocument()
+    expect(await screen.findByText('Deleted player')).toBeInTheDocument()
+    expect(screen.getByText('Exported data')).toBeInTheDocument()
     expect(screen.getAllByText('admin@example.com').length).toBeGreaterThan(0)
+    expect(adminLogsBuilder.order).toHaveBeenCalledWith('created_at', { ascending: false })
 
     const rows = screen.getAllByRole('row')
     const firstDataRow = rows[1]
