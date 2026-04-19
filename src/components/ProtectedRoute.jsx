@@ -13,7 +13,7 @@ export default function ProtectedRoute({ session, children }) {
         .from('users')
         .select('id, role')
         .eq('id', session.user.id)
-        .in('role', ['admin', 'superadmin'])
+        .eq('role', 'admin')
         .single()
 
       if (error || !data) {

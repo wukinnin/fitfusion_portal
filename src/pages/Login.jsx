@@ -24,12 +24,12 @@ export default function Login() {
       return
     }
 
-    // Verify the user is an admin or superadmin
+    // Verify the user is an admin
     const { data: adminData, error: adminError } = await supabase
       .from('users')
       .select('id, role')
       .eq('id', data.user.id)
-      .in('role', ['admin', 'superadmin'])
+      .eq('role', 'admin')
       .single()
 
     if (adminError || !adminData) {
