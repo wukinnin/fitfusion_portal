@@ -107,7 +107,7 @@ function LeaderboardTable({ title, rows, isTime }) {
   const displayRows = rows.length > 0 ? rows : Array.from({ length: 10 }, (_, i) => ({ rank: i + 1, username: '--', value: null }))
 
   return (
-    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+    <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
       <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
         <h4 className="text-sm font-medium text-gray-700">{title}</h4>
       </div>

@@ -3,21 +3,66 @@ import { supabase } from '../lib/supabase'
 
 export default function Admins() {
   const [admins, setAdmins] = useState([])
+  const [currentUserId, setCurrentUserId] = useState(null)
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState({ type: null, admin: null })
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' })
 
-  useEffect(() => { fetchAdmins() }, [])
+  useEffect(() => { init() }, [])
+
+  async function init() {
+    const { data: { user } } = await supabase.auth.getUser()
+    setCurrentUserId(user?.id || null)
+    await fetchAdmins()
+  }
 
   async function fetchAdmins() {
-    const { data } = await supabase
-      .from('v_admin_users')
-      .select('*')
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, username, email, is_email_verified, created_at')
+      .eq('role', 'admin')
       .order('created_at', { ascending: false })
+    if (error) {
+      console.error('Failed to load admins:', error)
+    }
     setAdmins(data || [])
     setLoading(false)
   }
+
+  function handleSort(key) {
+    let direction = 'asc'
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc'
+    }
+    setSortConfig({ key, direction })
+  }
+
+  const sortedAdmins = [...admins].sort((a, b) => {
+    if (!sortConfig.key) return 0
+    
+    let aVal = a[sortConfig.key] || ''
+    let bVal = b[sortConfig.key] || ''
+
+    if (sortConfig.key === 'created_at') {
+      aVal = new Date(aVal).getTime()
+      bVal = new Date(bVal).getTime()
+    } else if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase()
+      bVal = bVal.toLowerCase()
+    }
+
+    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1
+    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1
+    return 0
+  })
+
+  const filtered = sortedAdmins.filter((a) =>
+    (a.username || '').toLowerCase().includes(search.toLowerCase()) ||
+    (a.email || '').toLowerCase().includes(search.toLowerCase()) ||
+    (a.id || '').toLowerCase().includes(search.toLowerCase())
+  )
 
   async function logAdminAction(action, targetKind, targetUserId, details) {
     const user = (await supabase.auth.getUser()).data.user
@@ -29,6 +74,11 @@ export default function Admins() {
       target_user_id: targetUserId || null,
       details: details ? details : null,
     })
+  }
+
+  const SortIcon = ({ columnKey }) => {
+    if (sortConfig.key !== columnKey) return <span className="ml-1 text-gray-300 opacity-0 group-hover:opacity-100">↕</span>
+    return <span className="ml-1 text-blue-600">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
   }
 
   async function handleForceReset(admin) {
@@ -54,11 +104,6 @@ export default function Admins() {
     setModal({ type: null, admin: null })
   }
 
-  const filtered = admins.filter((a) =>
-    (a.email || '').toLowerCase().includes(search.toLowerCase()) ||
-    (a.username || '').toLowerCase().includes(search.toLowerCase())
-  )
-
   if (loading) {
     return <div><h2 className="text-xl font-semibold text-gray-900 mb-6">Admins</h2><p className="text-gray-400">Loading...</p></div>
   }
@@ -72,59 +117,93 @@ export default function Admins() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by email or username..."
+          placeholder="Search by username, email, or UUID..."
           className="w-full max-w-md px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Email</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Username</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Verified</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Created</th>
+              <th 
+                className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100"
+                onClick={() => handleSort('username')}
+              >
+                Username <SortIcon columnKey="username" />
+              </th>
+              <th 
+                className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100"
+                onClick={() => handleSort('email')}
+              >
+                Email <SortIcon columnKey="email" />
+              </th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">UUID</th>
+              <th 
+                className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100"
+                onClick={() => handleSort('created_at')}
+              >
+                Created <SortIcon columnKey="created_at" />
+              </th>
+              <th 
+                className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100"
+                onClick={() => handleSort('is_email_verified')}
+              >
+                Verified <SortIcon columnKey="is_email_verified" />
+              </th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((admin) => (
-              <tr key={admin.id} className="border-b border-gray-100 hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">{admin.email}</td>
-                <td className="px-4 py-3 text-gray-600">{admin.username || '—'}</td>
-                <td className="px-4 py-3">
-                  <span
-                    className={`inline-block px-2 py-0.5 text-xs rounded-full ${
-                      admin.is_email_verified
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-yellow-100 text-yellow-700'
-                    }`}
-                  >
-                    {admin.is_email_verified ? 'Verified' : 'Pending'}
-                  </span>
-                </td>
-                <td className="px-4 py-3 text-gray-500">{new Date(admin.created_at).toLocaleDateString()}</td>
-                <td className="px-4 py-3 text-gray-400 font-mono text-xs">{admin.id}</td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setModal({ type: 'reset', admin })}
-                      className="text-xs text-gray-600 hover:text-gray-900 cursor-pointer"
+            {filtered.map((admin) => {
+              const isSelf = admin.id === currentUserId
+              return (
+                <tr key={admin.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-900">
+                    {admin.username || '—'}
+                    {isSelf && (
+                      <span className="ml-2 inline-block px-1.5 py-0.5 text-[10px] rounded bg-blue-50 text-blue-700 border border-blue-200 align-middle">
+                        You
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">{admin.email}</td>
+                  <td className="px-4 py-3 text-gray-400 font-mono text-xs">{admin.id}</td>
+                  <td className="px-4 py-3 text-gray-500">{new Date(admin.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-block px-2 py-0.5 text-xs rounded-full ${
+                        admin.is_email_verified
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                      }`}
                     >
-                      Reset PW
-                    </button>
-                    <button
-                      onClick={() => setModal({ type: 'delete', admin })}
-                      className="text-xs text-red-600 hover:text-red-800 cursor-pointer"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                      {admin.is_email_verified ? 'Verified' : 'Pending'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        disabled={isSelf}
+                        onClick={() => setModal({ type: 'reset', admin })}
+                        title={isSelf ? 'You cannot reset your own password here' : ''}
+                        className="text-xs text-gray-600 hover:text-gray-900 disabled:text-gray-300 disabled:cursor-not-allowed disabled:hover:text-gray-300 cursor-pointer"
+                      >
+                        Reset PW
+                      </button>
+                      <button
+                        disabled={isSelf}
+                        onClick={() => setModal({ type: 'delete', admin })}
+                        title={isSelf ? 'You cannot delete your own account' : ''}
+                        className="text-xs text-red-600 hover:text-red-800 disabled:text-gray-300 disabled:cursor-not-allowed disabled:hover:text-gray-300 cursor-pointer"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )
+            })}
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-gray-400">

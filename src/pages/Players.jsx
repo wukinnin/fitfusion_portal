@@ -14,6 +14,7 @@ export default function Players() {
   const [modal, setModal] = useState({ type: null, player: null })
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
+  const [sortConfig, setSortConfig] = useState({ key: 'created_at', direction: 'desc' })
 
   useEffect(() => { fetchPlayers() }, [])
 
@@ -27,9 +28,51 @@ export default function Players() {
     setLoading(false)
   }
 
+  function handleSort(key) {
+    let direction = 'asc'
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc'
+    }
+    setSortConfig({ key, direction })
+  }
+
+  const sortedPlayers = [...players].sort((a, b) => {
+    if (!sortConfig.key) return 0
+    
+    let aVal = a[sortConfig.key] || ''
+    let bVal = b[sortConfig.key] || ''
+
+    if (sortConfig.key === 'created_at') {
+      aVal = new Date(aVal).getTime()
+      bVal = new Date(bVal).getTime()
+    } else if (typeof aVal === 'string') {
+      aVal = aVal.toLowerCase()
+      bVal = bVal.toLowerCase()
+    }
+
+    if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1
+    if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1
+    return 0
+  })
+
+  const filtered = sortedPlayers.filter(
+    (p) =>
+      (p.username || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.email || '').toLowerCase().includes(search.toLowerCase()) ||
+      (p.id || '').toLowerCase().includes(search.toLowerCase())
+  )
+
+  const SortIcon = ({ columnKey }) => {
+    if (sortConfig.key !== columnKey) return <span className="ml-1 text-gray-300 opacity-0 group-hover:opacity-100">↕</span>
+    return <span className="ml-1 text-blue-600">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+  }
+
   async function handleForceReset(player) {
     setActionLoading(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(player.email)
+    const { error } = await supabase
+      .from('users')
+      .update({ force_password_reset: true })
+      .eq('id', player.id)
     if (!error) {
       await logAdminAction('Force password reset', 'user', player.id)
     }
@@ -62,12 +105,6 @@ export default function Players() {
     })
   }
 
-  const filtered = players.filter(
-    (p) =>
-      (p.username || '').toLowerCase().includes(search.toLowerCase()) ||
-      (p.email || '').toLowerCase().includes(search.toLowerCase())
-  )
-
   if (loading) {
     return <div><h2 className="text-xl font-semibold text-gray-900 mb-6">Players</h2><p className="text-gray-400">Loading...</p></div>
   }
@@ -82,20 +119,41 @@ export default function Players() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by username or email..."
+          placeholder="Search by username, email, or UUID..."
           className="w-full max-w-md px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
 
       {/* Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Username</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Email</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Verified</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500">Created</th>
+              <th 
+                className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100"
+                onClick={() => handleSort('username')}
+              >
+                Username <SortIcon columnKey="username" />
+              </th>
+              <th 
+                className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100"
+                onClick={() => handleSort('email')}
+              >
+                Email <SortIcon columnKey="email" />
+              </th>
+              <th className="text-left px-4 py-3 font-medium text-gray-500">UUID</th>
+              <th 
+                className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100"
+                onClick={() => handleSort('created_at')}
+              >
+                Created <SortIcon columnKey="created_at" />
+              </th>
+              <th 
+                className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100"
+                onClick={() => handleSort('is_email_verified')}
+              >
+                Verified <SortIcon columnKey="is_email_verified" />
+              </th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Actions</th>
             </tr>
           </thead>
@@ -111,7 +169,7 @@ export default function Players() {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                   No players found.
                 </td>
               </tr>
@@ -127,7 +185,7 @@ export default function Players() {
           onClose={() => setModal({ type: null, player: null })}
         >
           <p className="text-sm text-gray-600 mb-4">
-            This will require <span className="font-medium">{modal.player.username}</span> ({modal.player.email}) to set a new password on their next login.
+            On their next login, <span className="font-medium">{modal.player.username}</span> ({modal.player.email}) will be required to set a new password before continuing.
           </p>
           <div className="flex justify-end gap-2">
             <button
@@ -182,6 +240,8 @@ function PlayerRow({ player, expanded, onToggle, onAction }) {
       <tr className="border-b border-gray-100 hover:bg-gray-50">
         <td className="px-4 py-3 font-medium text-gray-900">{player.username}</td>
         <td className="px-4 py-3 text-gray-600">{player.email}</td>
+        <td className="px-4 py-3 text-gray-400 font-mono text-xs">{player.id}</td>
+        <td className="px-4 py-3 text-gray-500">{new Date(player.created_at).toLocaleDateString()}</td>
         <td className="px-4 py-3">
           <span
             className={`inline-block px-2 py-0.5 text-xs rounded-full ${
@@ -193,7 +253,6 @@ function PlayerRow({ player, expanded, onToggle, onAction }) {
             {player.is_email_verified ? 'Verified' : 'Pending'}
           </span>
         </td>
-        <td className="px-4 py-3 text-gray-500">{new Date(player.created_at).toLocaleDateString()}</td>
         <td className="px-4 py-3">
           <div className="flex items-center gap-2">
             <button

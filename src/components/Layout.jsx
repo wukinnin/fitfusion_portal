@@ -19,7 +19,7 @@ export default function Layout({ session }) {
   return (
     <div className="min-h-screen flex bg-gray-50">
       {/* Sidebar */}
-      <aside className="w-56 bg-white border-r border-gray-200 flex flex-col">
+      <aside className="w-56 bg-white border-r border-gray-200 flex flex-col flex-shrink-0">
         <div className="px-4 py-5 border-b border-gray-200">
           <h1 className="text-lg font-semibold text-gray-900">FitFusion</h1>
           <p className="text-xs text-gray-500 mt-0.5">Admin Portal</p>
@@ -81,7 +81,7 @@ export default function Layout({ session }) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 p-8">
+      <main className="flex-1 p-8 overflow-x-auto min-w-0">
         <Outlet />
       </main>
     </div>

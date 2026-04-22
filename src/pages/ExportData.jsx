@@ -63,74 +63,64 @@ export default function ExportData() {
   }
 
   async function handleExport() {
+    if (selected.size === 0) return
     setExporting(true)
+    
     const tables = TABLES.filter((t) => selected.has(t.key))
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const ext = format === 'csv' ? 'csv' : 'json'
 
-    for (const table of tables) {
-      const rows = await fetchTableData(table.key)
-      const ext = format === 'csv' ? 'csv' : 'json'
-      const content = format === 'csv' ? toCsv(rows) : JSON.stringify(rows, null, 2)
-      const blob = new Blob([content], { type: format === 'csv' ? 'text/csv' : 'application/json' })
-      downloadBlob(blob, `${table.key}.${ext}`)
-    }
-
-    // Log export action
-    const user = (await supabase.auth.getUser()).data.user
-    if (user) {
-      await supabase.from('admin_logs').insert({
-        actor_user_id: user.id,
-        action: 'Exported data',
-        target_kind: 'system',
-        details: { tables: [...selected], format },
-      })
-    }
-
-    setExporting(false)
-  }
-
-  async function handleZipExport() {
-    setExporting(true)
-    const tables = TABLES.filter((t) => selected.has(t.key))
-
-    // Dynamic import of JSZip
-    let JSZip
     try {
-      JSZip = (await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')).default
-    } catch {
-      // Fallback: export individually
-      await handleExport()
-      return
+      if (selected.size >= 2) {
+        // ZIP Export
+        let JSZip
+        try {
+          JSZip = (await import('https://cdn.jsdelivr.net/npm/jszip@3.10.1/+esm')).default
+        } catch (e) {
+          console.error('JSZip import failed', e)
+          throw new Error('Failed to load ZIP library. Try exporting fewer tables individually.')
+        }
+
+        const zip = new JSZip()
+        for (const table of tables) {
+          const rows = await fetchTableData(table.key)
+          const content = format === 'csv' ? toCsv(rows) : JSON.stringify(rows, null, 2)
+          zip.file(`${table.key}.${ext}`, content)
+        }
+
+        const blob = await zip.generateAsync({ type: 'blob' })
+        downloadBlob(blob, `fitfusion_export_${timestamp}.zip`)
+      } else {
+        // Individual Export (1 table)
+        const table = tables[0]
+        const rows = await fetchTableData(table.key)
+        const content = format === 'csv' ? toCsv(rows) : JSON.stringify(rows, null, 2)
+        const blob = new Blob([content], { type: format === 'csv' ? 'text/csv' : 'application/json' })
+        downloadBlob(blob, `${table.key}_${timestamp}.${ext}`)
+      }
+
+      // Log export action
+      const user = (await supabase.auth.getUser()).data.user
+      if (user) {
+        await supabase.from('admin_logs').insert({
+          actor_user_id: user.id,
+          action: selected.size >= 2 ? 'Exported data (ZIP)' : 'Exported data',
+          target_kind: 'system',
+          details: { tables: [...selected], format, timestamp },
+        })
+      }
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setExporting(false)
     }
-
-    const zip = new JSZip()
-    for (const table of tables) {
-      const rows = await fetchTableData(table.key)
-      const ext = format === 'csv' ? 'csv' : 'json'
-      const content = format === 'csv' ? toCsv(rows) : JSON.stringify(rows, null, 2)
-      zip.file(`${table.key}.${ext}`, content)
-    }
-
-    const blob = await zip.generateAsync({ type: 'blob' })
-    downloadBlob(blob, `fitfusion_export_${new Date().toISOString().slice(0, 10)}.zip`)
-
-    const user = (await supabase.auth.getUser()).data.user
-    if (user) {
-      await supabase.from('admin_logs').insert({
-        actor_user_id: user.id,
-        action: 'Exported data (ZIP)',
-        target_kind: 'system',
-        details: { tables: [...selected], format },
-      })
-    }
-
-    setExporting(false)
   }
 
   return (
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-2">Export Data</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Export tables and schema with current data as CSV or JSON. Optionally bundle as ZIP.
+        Export tables and schema with current data as CSV or JSON. Automatically bundles as ZIP if multiple tables are selected.
       </p>
 
       {/* Table Selection */}
@@ -199,16 +189,9 @@ export default function ExportData() {
           <button
             disabled={selected.size === 0 || exporting}
             onClick={handleExport}
-            className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            className="px-6 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            {exporting ? 'Exporting...' : `Export ${selected.size > 0 ? `(${selected.size} table${selected.size > 1 ? 's' : ''})` : ''}`}
-          </button>
-          <button
-            disabled={selected.size === 0 || exporting}
-            onClick={handleZipExport}
-            className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {exporting ? 'Bundling...' : 'Bundle as ZIP'}
+            {exporting ? 'Processing...' : `Export ${selected.size > 0 ? `(${selected.size})` : ''}`}
           </button>
         </div>
       </div>
