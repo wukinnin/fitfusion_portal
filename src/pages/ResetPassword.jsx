@@ -12,23 +12,13 @@ export default function ResetPassword() {
   const [hasSession, setHasSession] = useState(false)
 
   useEffect(() => {
-    // Supabase redirects here with a session token in the URL hash
-    // The auth listener in App.jsx picks it up automatically
+    // When the user verifies the OTP, Supabase established a session.
+    // We check if that session exists and is valid for password update.
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         setHasSession(true)
       }
     })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'PASSWORD_RECOVERY' && session) {
-          setHasSession(true)
-        }
-      }
-    )
-
-    return () => subscription.unsubscribe()
   }, [])
 
   async function handleUpdatePassword(e) {
