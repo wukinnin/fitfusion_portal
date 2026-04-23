@@ -69,11 +69,10 @@ export default function Players() {
 
   async function handleForceReset(player) {
     setActionLoading(true)
-    const { error } = await supabase
-      .from('users')
-      .update({ force_password_reset: true })
-      .eq('id', player.id)
-    if (!error) {
+    const { data, error } = await supabase.functions.invoke('force-password-reset', {
+      body: { user_id: player.id },
+    })
+    if (!error && !data?.error) {
       await logAdminAction('Force password reset', 'user', player.id)
     }
     setActionLoading(false)
