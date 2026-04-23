@@ -12,6 +12,8 @@ export default function Settings({ session }) {
   const [confirmEmail, setConfirmEmail] = useState('')
   const [emailMsg, setEmailMsg] = useState({ type: '', text: '' })
   const [emailLoading, setEmailLoading] = useState(false)
+  const [emailStep, setEmailStep] = useState('form') // 'form' | 'otp'
+  const [otpCode, setOtpCode] = useState('')
 
   // Change password state
   const [pwCurrentPw, setPwCurrentPw] = useState('')
@@ -32,6 +34,18 @@ export default function Settings({ session }) {
       password,
     })
     return error
+  }
+
+  async function logAdminAction(action, details) {
+    const user = (await supabase.auth.getUser()).data.user
+    if (!user) return
+    await supabase.from('admin_logs').insert({
+      actor_user_id: user.id,
+      action,
+      target_kind: 'user',
+      target_user_id: null, // Self-action, no target user ID
+      details: details ? details : null,
+    })
   }
 
   async function handleChangeEmail(e) {
@@ -58,13 +72,69 @@ export default function Settings({ session }) {
     if (error) {
       setEmailMsg({ type: 'error', text: error.message })
     } else {
+      setEmailStep('otp')
       setEmailMsg({
         type: 'success',
-        text: 'Confirmation email sent to your new address. Check your inbox.',
+        text: 'A 6-digit verification code has been sent to your new email address.',
       })
-      setNewEmail('')
-      setConfirmEmail('')
-      setEmailCurrentPw('')
+    }
+
+    setEmailLoading(false)
+  }
+
+  async function handleVerifyEmailOtp(e) {
+    e.preventDefault()
+    setEmailMsg({ type: '', text: '' })
+    
+    if (otpCode.length < 6) {
+      setEmailMsg({ type: 'error', text: 'Please enter the 6-digit code.' })
+      return
+    }
+
+    setEmailLoading(true)
+
+    const { error } = await supabase.auth.verifyOtp({
+      email: newEmail,
+      token: otpCode,
+      type: 'email_change',
+    })
+
+    if (error) {
+      setEmailMsg({ type: 'error', text: error.message || 'Invalid or expired code.' })
+      setEmailLoading(false)
+      return
+    }
+
+    // Update public.users table as well
+    const { error: dbError } = await supabase
+      .from('users')
+      .update({ email: newEmail })
+      .eq('id', session.user.id)
+
+    if (dbError) {
+      console.error('Failed to sync email to public.users:', dbError)
+    }
+
+    await logAdminAction('Changed own email', { old_email: currentEmail, new_email: newEmail })
+
+    setEmailMsg({ type: 'success', text: 'Email updated successfully. Logging out...' })
+    
+    setTimeout(async () => {
+      await supabase.auth.signOut()
+      navigate('/login')
+    }, 2000)
+  }
+
+  async function handleResendEmailOtp() {
+    setEmailMsg({ type: '', text: '' })
+    setEmailLoading(true)
+
+    const { error } = await supabase.auth.updateUser({ email: newEmail })
+
+    if (error) {
+      setEmailMsg({ type: 'error', text: error.message })
+    } else {
+      setEmailMsg({ type: 'success', text: 'A new verification code has been sent.' })
     }
 
     setEmailLoading(false)
@@ -99,6 +169,7 @@ export default function Settings({ session }) {
     if (error) {
       setPwMsg({ type: 'error', text: error.message })
     } else {
+      await logAdminAction('Changed own password')
       setPwMsg({ type: 'success', text: 'Password updated successfully.' })
       setPwCurrentPw('')
       setNewPassword('')
@@ -137,6 +208,8 @@ export default function Settings({ session }) {
       setDeleteLoading(false)
       return
     }
+
+    await logAdminAction('Deleted own account', { email: currentEmail })
 
     // Sign out and redirect to login
     await supabase.auth.signOut()
@@ -177,57 +250,117 @@ export default function Settings({ session }) {
         <h3 className="text-base font-medium text-gray-900 mb-4">Change Email</h3>
         <MessageBox msg={emailMsg} />
 
-        <form onSubmit={handleChangeEmail} className="space-y-3">
-          <div>
-            <label htmlFor="emailCurrentPw" className="block text-sm font-medium text-gray-700 mb-1">
-              Current Password
-            </label>
-            <input
-              id="emailCurrentPw"
-              type="password"
-              value={emailCurrentPw}
-              onChange={(e) => setEmailCurrentPw(e.target.value)}
-              required
-              className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="••••••••"
-            />
+        {emailStep === 'form' ? (
+          <form onSubmit={handleChangeEmail} className="space-y-3">
+            <div>
+              <label htmlFor="emailCurrentPw" className="block text-sm font-medium text-gray-700 mb-1">
+                Current Password
+              </label>
+              <input
+                id="emailCurrentPw"
+                type="password"
+                value={emailCurrentPw}
+                onChange={(e) => setEmailCurrentPw(e.target.value)}
+                required
+                className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="••••••••"
+              />
+            </div>
+            <div>
+              <label htmlFor="newEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                New Email
+              </label>
+              <input
+                id="newEmail"
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                required
+                className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="new@example.com"
+              />
+            </div>
+            <div>
+              <label htmlFor="confirmEmail" className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm New Email
+              </label>
+              <input
+                id="confirmEmail"
+                type="email"
+                value={confirmEmail}
+                onChange={(e) => setConfirmEmail(e.target.value)}
+                required
+                className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="new@example.com"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={emailLoading}
+              className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {emailLoading ? 'Updating...' : 'Update Email'}
+            </button>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">
+              We sent a 6-digit code to <span className="font-medium text-gray-900">{newEmail}</span>.
+            </p>
+
+            <form onSubmit={handleVerifyEmailOtp} className="space-y-4">
+              <div>
+                <label htmlFor="otpCode" className="block text-sm font-medium text-gray-700 mb-1">
+                  Verification Code
+                </label>
+                <input
+                  id="otpCode"
+                  type="text"
+                  inputMode="numeric"
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  required
+                  maxLength={6}
+                  autoComplete="one-time-code"
+                  className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-center text-lg tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="000000"
+                />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  type="submit"
+                  disabled={emailLoading}
+                  className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {emailLoading ? 'Verifying...' : 'Verify Code'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEmailStep('form')
+                    setEmailMsg({ type: '', text: '' })
+                    setOtpCode('')
+                  }}
+                  className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
+                >
+                  Back
+                </button>
+              </div>
+            </form>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleResendEmailOtp}
+                disabled={emailLoading}
+                className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed cursor-pointer"
+              >
+                Resend code
+              </button>
+            </div>
           </div>
-          <div>
-            <label htmlFor="newEmail" className="block text-sm font-medium text-gray-700 mb-1">
-              New Email
-            </label>
-            <input
-              id="newEmail"
-              type="email"
-              value={newEmail}
-              onChange={(e) => setNewEmail(e.target.value)}
-              required
-              className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="new@example.com"
-            />
-          </div>
-          <div>
-            <label htmlFor="confirmEmail" className="block text-sm font-medium text-gray-700 mb-1">
-              Confirm New Email
-            </label>
-            <input
-              id="confirmEmail"
-              type="email"
-              value={confirmEmail}
-              onChange={(e) => setConfirmEmail(e.target.value)}
-              required
-              className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              placeholder="new@example.com"
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={emailLoading}
-            className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {emailLoading ? 'Updating...' : 'Update Email'}
-          </button>
-        </form>
+        )}
       </div>
 
       {/* Change Password */}

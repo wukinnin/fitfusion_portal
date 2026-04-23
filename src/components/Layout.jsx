@@ -1,8 +1,25 @@
+import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 export default function Layout({ session }) {
   const navigate = useNavigate()
+  const [username, setUsername] = useState('')
+
+  useEffect(() => {
+    async function fetchUsername() {
+      if (!session?.user?.id) return
+      const { data } = await supabase
+        .from('users')
+        .select('username')
+        .eq('id', session.user.id)
+        .single()
+      if (data) {
+        setUsername(data.username)
+      }
+    }
+    fetchUsername()
+  }, [session?.user?.id])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -68,9 +85,14 @@ export default function Layout({ session }) {
         </nav>
 
         <div className="px-3 py-4 border-t border-gray-200">
-          <p className="px-4 text-xs text-gray-500 truncate mb-2">
-            {session?.user?.email}
-          </p>
+          <div className="px-4 mb-2 overflow-hidden">
+            <p className="text-sm font-bold text-gray-900 truncate">
+              {username || 'Admin'}
+            </p>
+            <p className="text-xs text-gray-500 truncate">
+              {session?.user?.email}
+            </p>
+          </div>
           <button
             onClick={handleSignOut}
             className="w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded text-left cursor-pointer"

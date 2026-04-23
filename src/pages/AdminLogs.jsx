@@ -39,14 +39,22 @@ export default function AdminLogs() {
     setSortConfig({ key, direction })
   }
 
-  const processedLogs = logs.map(log => ({
-    ...log,
-    admin_username: log.actor?.username || '—',
-    admin_email: log.actor?.email || '—',
-    target_username: log.target?.username || log.target_user_id || log.target_session_id || '—',
-    target_email: log.target?.email || '—',
-    target_role: log.target?.role || log.target_kind || '—',
-  }))
+  const processedLogs = logs.map(log => {
+    const hasTargetUser = !!(log.target?.username || log.target_user_id)
+    const hasTargetSession = !!log.target_session_id
+    const isSystemAction = log.target_kind === 'system'
+    
+    return {
+      ...log,
+      admin_username: log.actor?.username || '—',
+      admin_email: log.actor?.email || '—',
+      admin_uuid: log.actor_user_id || '—',
+      target_username: (hasTargetUser || hasTargetSession) ? (log.target?.username || log.target_user_id || log.target_session_id) : '—',
+      target_email: hasTargetUser ? (log.target?.email || '—') : '—',
+      target_role: hasTargetUser ? (log.target?.role || '—') : (isSystemAction ? 'system' : '—'),
+      target_uuid: hasTargetUser ? (log.target_user_id || '—') : '—',
+    }
+  })
 
   const sortedLogs = [...processedLogs].sort((a, b) => {
     if (!sortConfig.key) return 0
@@ -55,9 +63,11 @@ export default function AdminLogs() {
 
     if (sortConfig.key === 'admin_username') { aVal = a.admin_username; bVal = b.admin_username; }
     else if (sortConfig.key === 'admin_email') { aVal = a.admin_email; bVal = b.admin_email; }
+    else if (sortConfig.key === 'admin_uuid') { aVal = a.admin_uuid; bVal = b.admin_uuid; }
     else if (sortConfig.key === 'target_username') { aVal = a.target_username; bVal = b.target_username; }
     else if (sortConfig.key === 'target_email') { aVal = a.target_email; bVal = b.target_email; }
     else if (sortConfig.key === 'target_role') { aVal = a.target_role; bVal = b.target_role; }
+    else if (sortConfig.key === 'target_uuid') { aVal = a.target_uuid; bVal = b.target_uuid; }
     else { aVal = a[sortConfig.key]; bVal = b[sortConfig.key]; }
 
     if (sortConfig.key === 'created_at') {
@@ -79,8 +89,10 @@ export default function AdminLogs() {
       log.action.toLowerCase().includes(s) ||
       log.admin_username.toLowerCase().includes(s) ||
       log.admin_email.toLowerCase().includes(s) ||
+      log.admin_uuid.toLowerCase().includes(s) ||
       log.target_username.toLowerCase().includes(s) ||
       log.target_email.toLowerCase().includes(s) ||
+      log.target_uuid.toLowerCase().includes(s) ||
       log.target_role.toLowerCase().includes(s) ||
       new Date(log.created_at).toLocaleString().toLowerCase().includes(s)
     )
@@ -96,7 +108,10 @@ export default function AdminLogs() {
     const lines = filtered.map((log) => {
       const ts = new Date(log.created_at).toLocaleString()
       const details = log.details ? JSON.stringify(log.details, null, 2) : ''
-      return `[${ts}] ADMIN: ${log.admin_username} (${log.admin_email}) | ACTION: ${log.action} | TARGET: ${log.target_username} (${log.target_email}) [${log.target_role}]${details ? ` | DETAILS: ${details.replace(/\n/g, ' ')}` : ''}`
+      const targetStr = log.target_username !== '—' 
+        ? `TARGET: ${log.target_username} (${log.target_email}) [UUID: ${log.target_uuid}] [ROLE: ${log.target_role}]`
+        : `TARGET: N/A`
+      return `[${ts}] ADMIN: ${log.admin_username} (${log.admin_email}) [${log.admin_uuid}] | ACTION: ${log.action} | ${targetStr}${details ? ` | DETAILS: ${details.replace(/\n/g, ' ')}` : ''}`
     })
     const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
@@ -134,7 +149,7 @@ export default function AdminLogs() {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search logs by admin, target, action, or date..."
+          placeholder="Search by admin (user/email/uuid), target (user/email/uuid/role), action, or date..."
           className="w-full max-w-md px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
       </div>
@@ -152,6 +167,9 @@ export default function AdminLogs() {
               <th onClick={() => handleSort('admin_email')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
                 Admin Email <SortIcon columnKey="admin_email" />
               </th>
+              <th onClick={() => handleSort('admin_uuid')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
+                Admin UUID <SortIcon columnKey="admin_uuid" />
+              </th>
               <th onClick={() => handleSort('action')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
                 Action <SortIcon columnKey="action" />
               </th>
@@ -163,6 +181,9 @@ export default function AdminLogs() {
               </th>
               <th onClick={() => handleSort('target_email')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
                 Target Email <SortIcon columnKey="target_email" />
+              </th>
+              <th onClick={() => handleSort('target_uuid')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
+                Target UUID <SortIcon columnKey="target_uuid" />
               </th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Details</th>
             </tr>
@@ -178,6 +199,9 @@ export default function AdminLogs() {
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {log.admin_email}
+                </td>
+                <td className="px-4 py-3 text-gray-400 font-mono text-[10px]">
+                  {log.actor_user_id}
                 </td>
                 <td className="px-4 py-3 text-gray-900">
                   {log.action}
@@ -196,6 +220,9 @@ export default function AdminLogs() {
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {log.target_email}
+                </td>
+                <td className="px-4 py-3 text-gray-400 font-mono text-[10px]">
+                  {log.target_uuid}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2">
