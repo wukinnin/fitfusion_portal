@@ -107,11 +107,13 @@ export default function AdminLogs() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     const lines = filtered.map((log) => {
       const ts = new Date(log.created_at).toLocaleString()
-      const details = log.details ? JSON.stringify(log.details, null, 2) : ''
-      const targetStr = log.target_username !== '—' 
-        ? `TARGET: ${log.target_username} (${log.target_email}) [UUID: ${log.target_uuid}] [ROLE: ${log.target_role}]`
-        : `TARGET: N/A`
-      return `[${ts}] ADMIN: ${log.admin_username} (${log.admin_email}) [${log.admin_uuid}] | ACTION: ${log.action} | ${targetStr}${details ? ` | DETAILS: ${details.replace(/\n/g, ' ')}` : ''}`
+      const details = log.details ? JSON.stringify(log.details) : '—'
+      
+      const targetPart = log.target_username !== '—' 
+        ? `[TARGET] Role: ${log.target_role} | Name: ${log.target_username} | Email: ${log.target_email} | UUID: ${log.target_uuid}`
+        : `[TARGET] N/A`
+        
+      return `[${ts}] [ADMIN] Name: ${log.admin_username} | Email: ${log.admin_email} | UUID: ${log.admin_uuid} | [ACTION] ${log.action} | ${targetPart} | [DETAILS] ${details}`
     })
     const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
@@ -167,7 +169,7 @@ export default function AdminLogs() {
               <th onClick={() => handleSort('admin_email')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
                 Admin Email <SortIcon columnKey="admin_email" />
               </th>
-              <th onClick={() => handleSort('admin_uuid')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
+              <th onClick={() => handleSort('admin_uuid')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100 whitespace-nowrap">
                 Admin UUID <SortIcon columnKey="admin_uuid" />
               </th>
               <th onClick={() => handleSort('action')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
@@ -182,7 +184,7 @@ export default function AdminLogs() {
               <th onClick={() => handleSort('target_email')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
                 Target Email <SortIcon columnKey="target_email" />
               </th>
-              <th onClick={() => handleSort('target_uuid')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
+              <th onClick={() => handleSort('target_uuid')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100 whitespace-nowrap">
                 Target UUID <SortIcon columnKey="target_uuid" />
               </th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Details</th>
@@ -200,7 +202,7 @@ export default function AdminLogs() {
                 <td className="px-4 py-3 text-gray-600">
                   {log.admin_email}
                 </td>
-                <td className="px-4 py-3 text-gray-400 font-mono text-[10px]">
+                <td className="px-4 py-3 text-gray-400 font-mono text-[10px] whitespace-nowrap">
                   {log.actor_user_id}
                 </td>
                 <td className="px-4 py-3 text-gray-900">
@@ -221,7 +223,7 @@ export default function AdminLogs() {
                 <td className="px-4 py-3 text-gray-600">
                   {log.target_email}
                 </td>
-                <td className="px-4 py-3 text-gray-400 font-mono text-[10px]">
+                <td className="px-4 py-3 text-gray-400 font-mono text-[10px] whitespace-nowrap">
                   {log.target_uuid}
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">

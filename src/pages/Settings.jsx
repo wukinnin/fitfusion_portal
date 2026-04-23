@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 export default function Settings({ session }) {
   const navigate = useNavigate()
+  const [username, setUsername] = useState('')
   const currentEmail = session?.user?.email || ''
 
   // Change email state
@@ -14,6 +15,21 @@ export default function Settings({ session }) {
   const [emailLoading, setEmailLoading] = useState(false)
   const [emailStep, setEmailStep] = useState('form') // 'form' | 'otp'
   const [otpCode, setOtpCode] = useState('')
+
+  useEffect(() => {
+    async function fetchUsername() {
+      if (!session?.user?.id) return
+      const { data } = await supabase
+        .from('users')
+        .select('username')
+        .eq('id', session.user.id)
+        .single()
+      if (data) {
+        setUsername(data.username)
+      }
+    }
+    fetchUsername()
+  }, [session?.user?.id])
 
   // Change password state
   const [pwCurrentPw, setPwCurrentPw] = useState('')
@@ -103,16 +119,6 @@ export default function Settings({ session }) {
       setEmailMsg({ type: 'error', text: error.message || 'Invalid or expired code.' })
       setEmailLoading(false)
       return
-    }
-
-    // Update public.users table as well
-    const { error: dbError } = await supabase
-      .from('users')
-      .update({ email: newEmail })
-      .eq('id', session.user.id)
-
-    if (dbError) {
-      console.error('Failed to sync email to public.users:', dbError)
     }
 
     await logAdminAction('Changed own email', { old_email: currentEmail, new_email: newEmail })
@@ -237,6 +243,9 @@ export default function Settings({ session }) {
       <h2 className="text-xl font-semibold text-gray-900 mb-6">Settings</h2>
 
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+        <p className="text-sm font-bold text-gray-900 mb-1">
+          {username || 'Admin'}
+        </p>
         <p className="text-sm text-gray-600 mb-1">
           Current email: <span className="font-medium text-gray-900">{currentEmail}</span>
         </p>
