@@ -39,6 +39,14 @@ export default function Login() {
       return
     }
 
+    // Check if force password reset is required
+    const forceReset = data.user.user_metadata?.force_password_reset === true
+    if (forceReset) {
+      // Allow login to proceed, App.jsx will handle the redirect to /force-reset-password
+      setLoading(false)
+      return
+    }
+
     // Check if email is verified (invite link not yet clicked)
     const isVerified = !!data.user.email_confirmed_at
     if (!isVerified) {

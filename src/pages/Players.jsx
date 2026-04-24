@@ -20,7 +20,7 @@ export default function Players() {
 
   async function fetchPlayers() {
     const { data } = await supabase
-      .from('users')
+      .from('active_users')
       .select('id, username, email, is_email_verified, created_at')
       .eq('role', 'player')
       .order('created_at', { ascending: false })
@@ -69,23 +69,26 @@ export default function Players() {
 
   async function handleForceReset(player) {
     setActionLoading(true)
-    const { data, error } = await supabase.functions.invoke('force-password-reset', {
-      body: { user_id: player.id },
+    // Log before the action to ensure we have snapshots while user exists
+    await logAdminAction('Force password reset', 'user', player.id)
+    
+    const { data, error } = await supabase.rpc('rpc_force_password_reset', {
+      target_user_id: player.id,
     })
-    if (!error && !data?.error) {
-      await logAdminAction('Force password reset', 'user', player.id)
-    }
+    
     setActionLoading(false)
     setModal({ type: null, player: null })
   }
 
   async function handleDeletePlayer(player) {
     setActionLoading(true)
-    const { data, error } = await supabase.functions.invoke('delete-player', {
-      body: { user_id: player.id },
+    // Log before deletion to capture target snapshots
+    await logAdminAction('Deleted player', 'user', player.id)
+    
+    const { data, error } = await supabase.rpc('rpc_delete_user', {
+      target_user_id: player.id,
     })
     if (!error && !data?.error) {
-      await logAdminAction('Deleted player', 'user', player.id, { username: player.username })
       setPlayers((prev) => prev.filter((p) => p.id !== player.id))
     }
     setActionLoading(false)
@@ -93,14 +96,37 @@ export default function Players() {
   }
 
   async function logAdminAction(action, targetKind, targetUserId, details) {
-    const user = (await supabase.auth.getUser()).data.user
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+
+    // Fetch snapshots for actor and target to ensure log immutability
+    const snapshots = { _actor: { email: user.email } }
+    
+    // Get actor username from our users table
+    const { data: actorData } = await supabase.from('users').select('username').eq('id', user.id).single()
+    if (actorData) snapshots._actor.username = actorData.username
+
+    if (targetUserId) {
+      const { data: targetData } = await supabase
+        .from('users')
+        .select('username, email, role')
+        .eq('id', targetUserId)
+        .single()
+      if (targetData) {
+        snapshots._target = {
+          username: targetData.username,
+          email: targetData.email,
+          role: targetData.role
+        }
+      }
+    }
+
     await supabase.from('admin_logs').insert({
       actor_user_id: user.id,
       action,
       target_kind: targetKind,
       target_user_id: targetUserId || null,
-      details: details ? details : null,
+      details: { ...details, ...snapshots },
     })
   }
 

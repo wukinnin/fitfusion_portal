@@ -44,14 +44,20 @@ export default function AdminLogs() {
     const hasTargetSession = !!log.target_session_id
     const isSystemAction = log.target_kind === 'system'
     
+    // Fallback to snapshots in details if join data is missing
+    const actorSnapshot = log.details?._actor || {}
+    const targetSnapshot = log.details?._target || {}
+    
     return {
       ...log,
-      admin_username: log.actor?.username || '—',
-      admin_email: log.actor?.email || '—',
+      admin_username: log.actor?.username || actorSnapshot.username || '—',
+      admin_email: log.actor?.email || actorSnapshot.email || '—',
       admin_uuid: log.actor_user_id || '—',
-      target_username: (hasTargetUser || hasTargetSession) ? (log.target?.username || log.target_user_id || log.target_session_id) : '—',
-      target_email: hasTargetUser ? (log.target?.email || '—') : '—',
-      target_role: hasTargetUser ? (log.target?.role || '—') : (isSystemAction ? 'system' : '—'),
+      target_username: (hasTargetUser || hasTargetSession) 
+        ? (log.target?.username || targetSnapshot.username || log.target_user_id || log.target_session_id) 
+        : '—',
+      target_email: hasTargetUser ? (log.target?.email || targetSnapshot.email || '—') : '—',
+      target_role: hasTargetUser ? (log.target?.role || targetSnapshot.role || '—') : (isSystemAction ? 'system' : '—'),
       target_uuid: hasTargetUser ? (log.target_user_id || '—') : '—',
     }
   })
@@ -265,7 +271,9 @@ export default function AdminLogs() {
             </div>
             <div>
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Target</p>
-              <p className="text-sm text-gray-900">{selectedLog.target?.username || selectedLog.target_user_id || selectedLog.target_session_id || '—'}</p>
+              <p className="text-sm text-gray-900">
+                {selectedLog.target?.username || selectedLog.details?._target?.username || selectedLog.target_user_id || selectedLog.target_session_id || '—'}
+              </p>
             </div>
             <div>
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Timestamp</p>

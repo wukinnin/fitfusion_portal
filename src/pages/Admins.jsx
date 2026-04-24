@@ -20,7 +20,7 @@ export default function Admins() {
 
   async function fetchAdmins() {
     const { data, error } = await supabase
-      .from('users')
+      .from('active_users')
       .select('id, username, email, is_email_verified, created_at')
       .eq('role', 'admin')
       .order('created_at', { ascending: false })
@@ -65,14 +65,37 @@ export default function Admins() {
   )
 
   async function logAdminAction(action, targetKind, targetUserId, details) {
-    const user = (await supabase.auth.getUser()).data.user
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+
+    // Fetch snapshots for actor and target to ensure log immutability
+    const snapshots = { _actor: { email: user.email } }
+    
+    // Get actor username from our users table
+    const { data: actorData } = await supabase.from('users').select('username').eq('id', user.id).single()
+    if (actorData) snapshots._actor.username = actorData.username
+
+    if (targetUserId) {
+      const { data: targetData } = await supabase
+        .from('users')
+        .select('username, email, role')
+        .eq('id', targetUserId)
+        .single()
+      if (targetData) {
+        snapshots._target = {
+          username: targetData.username,
+          email: targetData.email,
+          role: targetData.role
+        }
+      }
+    }
+
     await supabase.from('admin_logs').insert({
       actor_user_id: user.id,
       action,
       target_kind: targetKind,
       target_user_id: targetUserId || null,
-      details: details ? details : null,
+      details: { ...details, ...snapshots },
     })
   }
 
@@ -83,21 +106,27 @@ export default function Admins() {
 
   async function handleForceReset(admin) {
     setActionLoading(true)
-    const { error } = await supabase.auth.resetPasswordForEmail(admin.email)
-    if (!error) {
-      await logAdminAction('Force password reset (admin)', 'user', admin.id)
-    }
+    // Log before the action to ensure we have snapshots while user exists
+    await logAdminAction('Force password reset (admin)', 'user', admin.id)
+    
+    const { data, error } = await supabase.rpc('rpc_force_password_reset', {
+      target_user_id: admin.id,
+    })
+    
     setActionLoading(false)
     setModal({ type: null, admin: null })
   }
 
   async function handleDeleteAdmin(admin) {
     setActionLoading(true)
-    const { data, error } = await supabase.functions.invoke('delete-admin', {
-      body: { user_id: admin.id },
+    // Log before deletion to capture target snapshots
+    await logAdminAction('Deleted admin', 'user', admin.id)
+    
+    const { data, error } = await supabase.rpc('rpc_delete_user', {
+      target_user_id: admin.id,
     })
+    
     if (!error && !data?.error) {
-      await logAdminAction('Deleted admin', 'user', admin.id, { email: admin.email })
       setAdmins((prev) => prev.filter((a) => a.id !== admin.id))
     }
     setActionLoading(false)

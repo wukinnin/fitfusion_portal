@@ -53,14 +53,22 @@ export default function Settings({ session }) {
   }
 
   async function logAdminAction(action, details) {
-    const user = (await supabase.auth.getUser()).data.user
+    const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
+
+    // Fetch snapshot for actor to ensure log immutability
+    const snapshots = { _actor: { email: user.email } }
+    
+    // Get actor username from our users table
+    const { data: actorData } = await supabase.from('users').select('username').eq('id', user.id).single()
+    if (actorData) snapshots._actor.username = actorData.username
+
     await supabase.from('admin_logs').insert({
       actor_user_id: user.id,
       action,
       target_kind: 'user',
       target_user_id: null, // Self-action, no target user ID
-      details: details ? details : null,
+      details: { ...details, ...snapshots },
     })
   }
 
@@ -198,24 +206,12 @@ export default function Settings({ session }) {
       return
     }
 
-    // Call delete-admin edge function
-    const { data, error } = await supabase.functions.invoke('delete-admin', {
-      body: { user_id: session.user.id },
-    })
-
-    if (error) {
-      setDeleteMsg({ type: 'error', text: error.message || 'Failed to delete account.' })
-      setDeleteLoading(false)
-      return
-    }
-
-    if (data?.error) {
-      setDeleteMsg({ type: 'error', text: data.error })
-      setDeleteLoading(false)
-      return
-    }
-
     await logAdminAction('Deleted own account', { email: currentEmail })
+
+    // Call delete-admin RPC
+    const { data, error } = await supabase.rpc('rpc_delete_user', {
+      target_user_id: session.user.id,
+    })
 
     // Sign out and redirect to login
     await supabase.auth.signOut()

@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom'
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { supabase } from './lib/supabase'
 import ProtectedRoute from './components/ProtectedRoute'
@@ -13,10 +13,12 @@ import Achievements from './pages/Achievements'
 import ExportData from './pages/ExportData'
 import AdminLogs from './pages/AdminLogs'
 import Settings from './pages/Settings'
+import ForceResetPassword from './pages/ForceResetPassword'
 
 function App() {
   const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
+  const location = useLocation()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -41,6 +43,12 @@ function App() {
     )
   }
 
+  // Handle force password reset redirect
+  const forceReset = session?.user?.user_metadata?.force_password_reset === true
+  if (session && forceReset && location.pathname !== '/force-reset-password') {
+    return <Navigate to="/force-reset-password" replace />
+  }
+
   return (
     <Routes>
       <Route
@@ -48,6 +56,16 @@ function App() {
         element={session ? <Navigate to="/" replace /> : <Login />}
       />
       <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route
+        path="/force-reset-password"
+        element={
+          session ? (
+            <ForceResetPassword session={session} />
+          ) : (
+            <Navigate to="/login" replace />
+          )
+        }
+      />
       <Route
         element={
           <ProtectedRoute session={session}>
