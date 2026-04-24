@@ -6,7 +6,6 @@ const TABLES = [
   { key: 'sessions', label: 'Sessions', description: 'All game session records' },
   { key: 'achievements', label: 'Achievements', description: 'Master achievement definitions' },
   { key: 'user_achievements', label: 'User Achievements', description: 'Achievement unlock records per user' },
-  { key: 'admin_logs', label: 'Admin Logs', description: 'Audit trail of admin actions' },
 ]
 
 function toCsv(rows) {
@@ -80,41 +79,8 @@ export default function ExportData() {
         achievement_title: row.achievements?.title || '—'
       }))
     }
-    if (key === 'admin_logs') {
-      const { data } = await supabase.from('admin_logs').select('*').order('created_at', { ascending: false })
-      return (data || []).map(row => {
-        const actor = row.details?._actor || {}
-        const target = row.details?._target || {}
-        return {
-          ...row,
-          actor_username: actor.username || '—',
-          actor_email: actor.email || '—',
-          target_username: row.target_user_id ? (target.username || '—') : '',
-          target_email: row.target_user_id ? (target.email || '—') : '',
-          target_role: row.target_user_id ? (target.role || '—') : (row.target_kind === 'system' ? 'system' : '')
-        }
-      })
-    }
     const { data } = await supabase.from(key).select('*')
     return data || []
-  }
-
-  function toTxt(tableKey, rows) {
-    if (!rows || rows.length === 0) return `No data for ${tableKey}`
-    
-    const timestamp = new Date().toLocaleString()
-    let content = `FitFusion Export: ${tableKey.toUpperCase()}\nExported at: ${timestamp}\n${'='.repeat(50)}\n\n`
-
-    rows.forEach((row, i) => {
-      content += `[Record #${i + 1}]\n`
-      Object.entries(row).forEach(([k, v]) => {
-        if (k === 'users' || k === 'achievements') return // Skip join objects
-        const val = v === null ? 'NULL' : (typeof v === 'object' ? JSON.stringify(v) : String(v))
-        content += `${k.padEnd(20)}: ${val}\n`
-      })
-      content += `\n`
-    })
-    return content
   }
 
   async function handleExport() {
@@ -123,7 +89,7 @@ export default function ExportData() {
     
     const tables = TABLES.filter((t) => selected.has(t.key))
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-    let ext = format === 'csv' ? 'csv' : (format === 'json' ? 'json' : 'txt')
+    let ext = format === 'csv' ? 'csv' : 'json'
 
     try {
       if (selected.size >= 2) {
@@ -141,8 +107,7 @@ export default function ExportData() {
           const rows = await fetchTableData(table.key)
           let content
           if (format === 'csv') content = toCsv(rows)
-          else if (format === 'json') content = JSON.stringify(rows, null, 2)
-          else content = toTxt(table.key, rows)
+          else content = JSON.stringify(rows, null, 2)
           
           zip.file(`${table.key}.${ext}`, content)
         }
@@ -158,12 +123,9 @@ export default function ExportData() {
         if (format === 'csv') {
           content = toCsv(rows)
           mimeType = 'text/csv'
-        } else if (format === 'json') {
+        } else {
           content = JSON.stringify(rows, null, 2)
           mimeType = 'application/json'
-        } else {
-          content = toTxt(table.key, rows)
-          mimeType = 'text/plain'
         }
         
         const blob = new Blob([content], { type: mimeType })
@@ -253,17 +215,6 @@ export default function ExportData() {
               className="h-4 w-4 text-blue-600 focus:ring-blue-500"
             />
             <span className="text-sm text-gray-700">JSON</span>
-          </label>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="radio"
-              name="format"
-              value="txt"
-              checked={format === 'txt'}
-              onChange={() => setFormat('txt')}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500"
-            />
-            <span className="text-sm text-gray-700">TXT (Human Readable)</span>
           </label>
         </div>
 
