@@ -348,7 +348,7 @@ export default function Settings({ session }) {
       <div className="bg-white rounded-lg border border-red-200 p-6">
         <h3 className="text-base font-medium text-red-700 mb-1">Danger Zone</h3>
         <p className="text-sm text-gray-500 mb-4">
-          Permanently delete your admin account. This disassociates your email and cannot be undone.
+          Delete your admin account. You will lose admin access and cannot be undone.
         </p>
 
         <MessageBox msg={deleteMsg} />
@@ -370,7 +370,7 @@ export default function Settings({ session }) {
           </div>
 
           <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-            ARE YOU SURE YOU WANT TO DELETE YOUR ACCOUNT? THIS WILL PERMANENTLY REMOVE YOUR ACCESS AND DATA. THIS CANNOT BE UNDONE.
+            ARE YOU SURE YOU WANT TO DELETE YOUR ACCOUNT? YOU WILL LOSE ACCESS. THIS CANNOT BE UNDONE.
           </div>
 
           <div className="flex gap-2">
@@ -389,7 +389,7 @@ export default function Settings({ session }) {
               disabled={deleteLoading}
               className="px-4 py-2 text-sm text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              {deleteLoading ? 'Deleting...' : 'Permanently Delete Account'}
+              {deleteLoading ? 'Deleting...' : 'Delete Account'}
             </button>
           </div>
         </form>
