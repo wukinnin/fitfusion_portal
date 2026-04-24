@@ -42,6 +42,8 @@ export default function Settings({ session }) {
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteMsg, setDeleteMsg] = useState({ type: '', text: '' })
   const [deleteLoading, setDeleteLoading] = useState(false)
+  const [deleteStep, setDeleteStep] = useState('form') // 'form' | 'otp'
+  const [deleteOtp, setDeleteOtp] = useState('')
 
   // Re-authenticate by signing in with current password
   async function reAuth(password) {
@@ -193,12 +195,12 @@ export default function Settings({ session }) {
     setPwLoading(false)
   }
 
-  async function handleDeleteAccount(e) {
+  async function handleSendDeleteOtp(e) {
     e.preventDefault()
     setDeleteMsg({ type: '', text: '' })
     setDeleteLoading(true)
 
-    // Verify current password
+    // 1. Verify current password
     const reAuthError = await reAuth(deletePassword)
     if (reAuthError) {
       setDeleteMsg({ type: 'error', text: 'Current password is incorrect.' })
@@ -206,16 +208,74 @@ export default function Settings({ session }) {
       return
     }
 
+    // 2. Request OTP via password reset (reusing existing infrastructure)
+    const { error } = await supabase.auth.resetPasswordForEmail(currentEmail)
+
+    if (error) {
+      setDeleteMsg({ type: 'error', text: error.message })
+    } else {
+      setDeleteStep('otp')
+      setDeleteMsg({
+        type: 'success',
+        text: 'A 6-digit verification code has been sent to your email address.',
+      })
+    }
+    setDeleteLoading(false)
+  }
+
+  async function handleVerifyDeleteOtp(e) {
+    e.preventDefault()
+    setDeleteMsg({ type: '', text: '' })
+    setDeleteLoading(true)
+
+    if (deleteOtp.length < 6) {
+      setDeleteMsg({ type: 'error', text: 'Please enter the 6-digit code.' })
+      setDeleteLoading(false)
+      return
+    }
+
+    // 1. Verify the OTP
+    const { error: otpError } = await supabase.auth.verifyOtp({
+      email: currentEmail,
+      token: deleteOtp,
+      type: 'recovery',
+    })
+
+    if (otpError) {
+      setDeleteMsg({ type: 'error', text: otpError.message || 'Invalid or expired code.' })
+      setDeleteLoading(false)
+      return
+    }
+
+    // 2. Log before deletion
     await logAdminAction('Deleted own account', { email: currentEmail })
 
-    // Call delete-admin RPC
-    const { data, error } = await supabase.rpc('rpc_delete_user', {
+    // 3. Final Hard Purge via RPC
+    const { data, error: rpcError } = await supabase.rpc('rpc_delete_user', {
       target_user_id: session.user.id,
     })
 
-    // Sign out and redirect to login
+    if (rpcError || data?.error) {
+      setDeleteMsg({ type: 'error', text: rpcError?.message || data?.error || 'Deletion failed.' })
+      setDeleteLoading(false)
+      return
+    }
+
+    // 4. Immediate logout and redirect
     await supabase.auth.signOut()
     navigate('/login')
+  }
+
+  function Modal({ title, children, onClose }) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+        <div className="relative bg-white rounded-lg border border-gray-200 shadow-lg p-6 w-full max-w-md mx-4">
+          <h3 className="text-base font-medium text-gray-900 mb-4">{title}</h3>
+          {children}
+        </div>
+      </div>
+    )
   }
 
   function MessageBox({ msg }) {
@@ -437,7 +497,7 @@ export default function Settings({ session }) {
 
         <MessageBox msg={deleteMsg} />
 
-        <form onSubmit={handleDeleteAccount} className="space-y-3">
+        <form onSubmit={handleSendDeleteOtp} className="space-y-3">
           <div>
             <label htmlFor="deletePassword" className="block text-sm font-medium text-gray-700 mb-1">
               Current Password
@@ -463,6 +523,7 @@ export default function Settings({ session }) {
               onClick={() => {
                 setDeletePassword('')
                 setDeleteMsg({ type: '', text: '' })
+                setDeleteStep('form')
               }}
               className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
             >
@@ -473,10 +534,63 @@ export default function Settings({ session }) {
               disabled={deleteLoading}
               className="px-4 py-2 text-sm text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              {deleteLoading ? 'Deleting...' : 'Delete Account'}
+              {deleteLoading ? 'Sending...' : 'Send Verification Code'}
             </button>
           </div>
         </form>
+
+        {deleteStep === 'otp' && (
+          <Modal
+            title="Verify Deletion"
+            onClose={() => {
+              setDeleteStep('form')
+              setDeleteMsg({ type: '', text: '' })
+              setDeleteOtp('')
+            }}
+          >
+            <form onSubmit={handleVerifyDeleteOtp} className="space-y-4">
+              <p className="text-sm text-gray-600">
+                A verification code was sent to <span className="font-medium text-gray-900">{currentEmail}</span>.
+              </p>
+              
+              <MessageBox msg={deleteMsg} />
+
+              <div>
+                <label htmlFor="deleteOtp" className="block text-sm font-medium text-gray-700 mb-1">
+                  6-Digit Code
+                </label>
+                <input
+                  id="deleteOtp"
+                  type="text"
+                  inputMode="numeric"
+                  value={deleteOtp}
+                  onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  required
+                  maxLength={6}
+                  className="w-full px-3 py-2 border border-gray-300 rounded text-center text-lg tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="000000"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={deleteLoading}
+                  className="flex-1 py-2 px-4 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+                >
+                  {deleteLoading ? 'Deleting...' : 'Confirm Permanent Deletion'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeleteStep('form')}
+                  className="py-2 px-4 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
+                >
+                  Back
+                </button>
+              </div>
+            </form>
+          </Modal>
+        )}
       </div>
     </div>
   )
