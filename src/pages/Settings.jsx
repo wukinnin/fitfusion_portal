@@ -85,7 +85,7 @@ export default function Settings({ session }) {
 
     setEmailLoading(true)
 
-    // Verify current password
+    // 1. Verify current password
     const reAuthError = await reAuth(emailCurrentPw)
     if (reAuthError) {
       setEmailMsg({ type: 'error', text: 'Current password is incorrect.' })
@@ -93,67 +93,22 @@ export default function Settings({ session }) {
       return
     }
 
+    // 2. Update email directly (Supabase will still send a confirmation to the new email, 
+    // but we skip the OTP verification step in the portal as requested)
     const { error } = await supabase.auth.updateUser({ email: newEmail })
 
     if (error) {
       setEmailMsg({ type: 'error', text: error.message })
-    } else {
-      setEmailStep('otp')
-      setEmailMsg({
-        type: 'success',
-        text: 'A 6-digit verification code has been sent to your new email address.',
-      })
-    }
-
-    setEmailLoading(false)
-  }
-
-  async function handleVerifyEmailOtp(e) {
-    e.preventDefault()
-    setEmailMsg({ type: '', text: '' })
-    
-    if (otpCode.length < 6) {
-      setEmailMsg({ type: 'error', text: 'Please enter the 6-digit code.' })
-      return
-    }
-
-    setEmailLoading(true)
-
-    const { error } = await supabase.auth.verifyOtp({
-      email: newEmail,
-      token: otpCode,
-      type: 'email_change',
-    })
-
-    if (error) {
-      setEmailMsg({ type: 'error', text: error.message || 'Invalid or expired code.' })
       setEmailLoading(false)
-      return
-    }
-
-    await logAdminAction('Changed own email', { old_email: currentEmail, new_email: newEmail })
-
-    setEmailMsg({ type: 'success', text: 'Email updated successfully. Logging out...' })
-    
-    setTimeout(async () => {
-      await supabase.auth.signOut()
-      navigate('/login')
-    }, 2000)
-  }
-
-  async function handleResendEmailOtp() {
-    setEmailMsg({ type: '', text: '' })
-    setEmailLoading(true)
-
-    const { error } = await supabase.auth.updateUser({ email: newEmail })
-
-    if (error) {
-      setEmailMsg({ type: 'error', text: error.message })
     } else {
-      setEmailMsg({ type: 'success', text: 'A new verification code has been sent.' })
+      await logAdminAction('Changed own email', { old_email: currentEmail, new_email: newEmail })
+      setEmailMsg({ type: 'success', text: 'Email update initiated. Please check your new email for a confirmation link. Logging out...' })
+      
+      setTimeout(async () => {
+        await supabase.auth.signOut()
+        navigate('/login')
+      }, 3000)
     }
-
-    setEmailLoading(false)
   }
 
   async function handleChangePassword(e) {
@@ -195,7 +150,7 @@ export default function Settings({ session }) {
     setPwLoading(false)
   }
 
-  async function handleSendDeleteOtp(e) {
+  async function handleDeleteAccount(e) {
     e.preventDefault()
     setDeleteMsg({ type: '', text: '' })
     setDeleteLoading(true)
@@ -204,45 +159,6 @@ export default function Settings({ session }) {
     const reAuthError = await reAuth(deletePassword)
     if (reAuthError) {
       setDeleteMsg({ type: 'error', text: 'Current password is incorrect.' })
-      setDeleteLoading(false)
-      return
-    }
-
-    // 2. Request OTP via password reset (reusing existing infrastructure)
-    const { error } = await supabase.auth.resetPasswordForEmail(currentEmail)
-
-    if (error) {
-      setDeleteMsg({ type: 'error', text: error.message })
-    } else {
-      setDeleteStep('otp')
-      setDeleteMsg({
-        type: 'success',
-        text: 'A 6-digit verification code has been sent to your email address.',
-      })
-    }
-    setDeleteLoading(false)
-  }
-
-  async function handleVerifyDeleteOtp(e) {
-    e.preventDefault()
-    setDeleteMsg({ type: '', text: '' })
-    setDeleteLoading(true)
-
-    if (deleteOtp.length < 6) {
-      setDeleteMsg({ type: 'error', text: 'Please enter the 6-digit code.' })
-      setDeleteLoading(false)
-      return
-    }
-
-    // 1. Verify the OTP
-    const { error: otpError } = await supabase.auth.verifyOtp({
-      email: currentEmail,
-      token: deleteOtp,
-      type: 'recovery',
-    })
-
-    if (otpError) {
-      setDeleteMsg({ type: 'error', text: otpError.message || 'Invalid or expired code.' })
       setDeleteLoading(false)
       return
     }
@@ -315,117 +231,57 @@ export default function Settings({ session }) {
         <h3 className="text-base font-medium text-gray-900 mb-4">Change Email</h3>
         <MessageBox msg={emailMsg} />
 
-        {emailStep === 'form' ? (
-          <form onSubmit={handleChangeEmail} className="space-y-3">
-            <div>
-              <label htmlFor="emailCurrentPw" className="block text-sm font-medium text-gray-700 mb-1">
-                Current Password
-              </label>
-              <input
-                id="emailCurrentPw"
-                type="password"
-                value={emailCurrentPw}
-                onChange={(e) => setEmailCurrentPw(e.target.value)}
-                required
-                className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="••••••••"
-              />
-            </div>
-            <div>
-              <label htmlFor="newEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                New Email
-              </label>
-              <input
-                id="newEmail"
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                required
-                className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="new@example.com"
-              />
-            </div>
-            <div>
-              <label htmlFor="confirmEmail" className="block text-sm font-medium text-gray-700 mb-1">
-                Confirm New Email
-              </label>
-              <input
-                id="confirmEmail"
-                type="email"
-                value={confirmEmail}
-                onChange={(e) => setConfirmEmail(e.target.value)}
-                required
-                className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="new@example.com"
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={emailLoading}
-              className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-            >
-              {emailLoading ? 'Updating...' : 'Update Email'}
-            </button>
-          </form>
-        ) : (
-          <div className="space-y-4">
-            <p className="text-sm text-gray-600">
-              We sent a 6-digit code to <span className="font-medium text-gray-900">{newEmail}</span>.
-            </p>
-
-            <form onSubmit={handleVerifyEmailOtp} className="space-y-4">
-              <div>
-                <label htmlFor="otpCode" className="block text-sm font-medium text-gray-700 mb-1">
-                  Verification Code
-                </label>
-                <input
-                  id="otpCode"
-                  type="text"
-                  inputMode="numeric"
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  required
-                  maxLength={6}
-                  autoComplete="one-time-code"
-                  className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-center text-lg tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  placeholder="000000"
-                />
-              </div>
-
-              <div className="flex items-center gap-3">
-                <button
-                  type="submit"
-                  disabled={emailLoading}
-                  className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                >
-                  {emailLoading ? 'Verifying...' : 'Verify Code'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEmailStep('form')
-                    setEmailMsg({ type: '', text: '' })
-                    setOtpCode('')
-                  }}
-                  className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
-                >
-                  Back
-                </button>
-              </div>
-            </form>
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={handleResendEmailOtp}
-                disabled={emailLoading}
-                className="text-sm text-blue-600 hover:text-blue-800 disabled:text-gray-400 disabled:cursor-not-allowed cursor-pointer"
-              >
-                Resend code
-              </button>
-            </div>
+        <form onSubmit={handleChangeEmail} className="space-y-3">
+          <div>
+            <label htmlFor="emailCurrentPw" className="block text-sm font-medium text-gray-700 mb-1">
+              Current Password
+            </label>
+            <input
+              id="emailCurrentPw"
+              type="password"
+              value={emailCurrentPw}
+              onChange={(e) => setEmailCurrentPw(e.target.value)}
+              required
+              className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="••••••••"
+            />
           </div>
-        )}
+          <div>
+            <label htmlFor="newEmail" className="block text-sm font-medium text-gray-700 mb-1">
+              New Email
+            </label>
+            <input
+              id="newEmail"
+              type="email"
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              required
+              className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="new@example.com"
+            />
+          </div>
+          <div>
+            <label htmlFor="confirmEmail" className="block text-sm font-medium text-gray-700 mb-1">
+              Confirm New Email
+            </label>
+            <input
+              id="confirmEmail"
+              type="email"
+              value={confirmEmail}
+              onChange={(e) => setConfirmEmail(e.target.value)}
+              required
+              className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="new@example.com"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={emailLoading}
+            className="px-4 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {emailLoading ? 'Updating...' : 'Update Email'}
+          </button>
+        </form>
       </div>
 
       {/* Change Password */}
@@ -497,7 +353,7 @@ export default function Settings({ session }) {
 
         <MessageBox msg={deleteMsg} />
 
-        <form onSubmit={handleSendDeleteOtp} className="space-y-3">
+        <form onSubmit={handleDeleteAccount} className="space-y-3">
           <div>
             <label htmlFor="deletePassword" className="block text-sm font-medium text-gray-700 mb-1">
               Current Password
@@ -514,7 +370,7 @@ export default function Settings({ session }) {
           </div>
 
           <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-            ARE YOU SURE YOU WANT TO DELETE YOUR ACCOUNT? THIS DISASSOCIATES YOUR EMAIL. THIS CANNOT BE UNDONE.
+            ARE YOU SURE YOU WANT TO DELETE YOUR ACCOUNT? THIS WILL PERMANENTLY REMOVE YOUR ACCESS AND DATA. THIS CANNOT BE UNDONE.
           </div>
 
           <div className="flex gap-2">
@@ -523,7 +379,6 @@ export default function Settings({ session }) {
               onClick={() => {
                 setDeletePassword('')
                 setDeleteMsg({ type: '', text: '' })
-                setDeleteStep('form')
               }}
               className="px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
             >
@@ -534,63 +389,10 @@ export default function Settings({ session }) {
               disabled={deleteLoading}
               className="px-4 py-2 text-sm text-white bg-red-600 rounded hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
-              {deleteLoading ? 'Sending...' : 'Send Verification Code'}
+              {deleteLoading ? 'Deleting...' : 'Permanently Delete Account'}
             </button>
           </div>
         </form>
-
-        {deleteStep === 'otp' && (
-          <Modal
-            title="Verify Deletion"
-            onClose={() => {
-              setDeleteStep('form')
-              setDeleteMsg({ type: '', text: '' })
-              setDeleteOtp('')
-            }}
-          >
-            <form onSubmit={handleVerifyDeleteOtp} className="space-y-4">
-              <p className="text-sm text-gray-600">
-                A verification code was sent to <span className="font-medium text-gray-900">{currentEmail}</span>.
-              </p>
-              
-              <MessageBox msg={deleteMsg} />
-
-              <div>
-                <label htmlFor="deleteOtp" className="block text-sm font-medium text-gray-700 mb-1">
-                  6-Digit Code
-                </label>
-                <input
-                  id="deleteOtp"
-                  type="text"
-                  inputMode="numeric"
-                  value={deleteOtp}
-                  onChange={(e) => setDeleteOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  required
-                  maxLength={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded text-center text-lg tracking-[0.5em] focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  placeholder="000000"
-                />
-              </div>
-
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={deleteLoading}
-                  className="flex-1 py-2 px-4 bg-red-600 text-white text-sm font-medium rounded hover:bg-red-700 disabled:opacity-50 cursor-pointer"
-                >
-                  {deleteLoading ? 'Deleting...' : 'Confirm Permanent Deletion'}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDeleteStep('form')}
-                  className="py-2 px-4 text-sm text-gray-700 border border-gray-300 rounded hover:bg-gray-50 cursor-pointer"
-                >
-                  Back
-                </button>
-              </div>
-            </form>
-          </Modal>
-        )}
       </div>
     </div>
   )
