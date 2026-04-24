@@ -38,13 +38,24 @@ export default function AdminLogs() {
   }
 
   const processedLogs = logs.map(log => {
+    const isSystemAction = log.target_kind === 'system'
     const hasTargetUser = !!log.target_user_id
     const hasTargetSession = !!log.target_session_id
-    const isSystemAction = log.target_kind === 'system'
     
     // Always rely on snapshots in details because joins are gone
     const actorSnapshot = log.details?._actor || {}
     const targetSnapshot = log.details?._target || {}
+    
+    // Determine target role - ensure it's never absent
+    let targetRole = '—'
+    if (isSystemAction) {
+      targetRole = 'system'
+    } else if (hasTargetUser || hasTargetSession) {
+      targetRole = targetSnapshot.role || 'user'
+    } else {
+      // Fallback for logs where target_kind might not be explicitly 'system' but it's a self-action or system-wide
+      targetRole = 'system'
+    }
     
     return {
       ...log,
@@ -55,7 +66,7 @@ export default function AdminLogs() {
         ? (targetSnapshot.username || log.target_user_id || log.target_session_id) 
         : '—',
       target_email: hasTargetUser ? (targetSnapshot.email || '—') : '—',
-      target_role: hasTargetUser ? (targetSnapshot.role || '—') : (isSystemAction ? 'system' : '—'),
+      target_role: targetRole,
       target_uuid: hasTargetUser ? (log.target_user_id || '—') : '—',
     }
   })
@@ -207,7 +218,12 @@ export default function AdminLogs() {
                   {log.admin_email}
                 </td>
                 <td className="px-4 py-3 text-gray-400 font-mono text-[10px] whitespace-nowrap">
-                  {log.actor_user_id}
+                  <div className="flex flex-col">
+                    <span>{log.actor_user_id}</span>
+                    {log.admin_username !== '—' && (
+                      <span className="text-gray-500 font-sans italic">{log.admin_username} ({log.admin_email})</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-gray-900">
                   {log.action}
@@ -215,10 +231,10 @@ export default function AdminLogs() {
                 <td className="px-4 py-3">
                   <span className={`inline-block px-2 py-0.5 rounded text-[10px] ${
                     log.target_role === 'admin' ? 'bg-blue-50 text-blue-700 border border-blue-100' :
-                    log.target_role === 'player' ? 'bg-green-50 text-green-700 border border-green-100' :
+                    log.target_role === 'user' || log.target_role === 'player' ? 'bg-green-50 text-green-700 border border-green-100' :
                     'bg-gray-50 text-gray-600 border border-gray-100'
                   }`}>
-                    {log.target_role}
+                    {log.target_role === 'player' ? 'user' : log.target_role}
                   </span>
                 </td>
                 <td className="px-4 py-3 text-gray-900">
@@ -228,7 +244,12 @@ export default function AdminLogs() {
                   {log.target_email}
                 </td>
                 <td className="px-4 py-3 text-gray-400 font-mono text-[10px] whitespace-nowrap">
-                  {log.target_uuid}
+                  <div className="flex flex-col">
+                    <span>{log.target_uuid}</span>
+                    {log.target_username !== '—' && log.target_username !== log.target_uuid && (
+                      <span className="text-gray-500 font-sans italic">{log.target_username} {log.target_email !== '—' ? `(${log.target_email})` : ''}</span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <div className="flex items-center gap-2">
