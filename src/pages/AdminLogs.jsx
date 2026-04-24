@@ -20,9 +20,7 @@ export default function AdminLogs() {
           target_session_id, 
           details, 
           created_at, 
-          actor_user_id, 
-          actor:users!admin_logs_actor_user_id_fkey(username, email),
-          target:users!admin_logs_target_user_id_fkey(username, email, role)
+          actor_user_id
         `)
         .order('created_at', { ascending: false })
       setLogs(data || [])
@@ -40,24 +38,24 @@ export default function AdminLogs() {
   }
 
   const processedLogs = logs.map(log => {
-    const hasTargetUser = !!(log.target?.username || log.target_user_id)
+    const hasTargetUser = !!log.target_user_id
     const hasTargetSession = !!log.target_session_id
     const isSystemAction = log.target_kind === 'system'
     
-    // Fallback to snapshots in details if join data is missing
+    // Always rely on snapshots in details because joins are gone
     const actorSnapshot = log.details?._actor || {}
     const targetSnapshot = log.details?._target || {}
     
     return {
       ...log,
-      admin_username: log.actor?.username || actorSnapshot.username || '—',
-      admin_email: log.actor?.email || actorSnapshot.email || '—',
+      admin_username: actorSnapshot.username || '—',
+      admin_email: actorSnapshot.email || '—',
       admin_uuid: log.actor_user_id || '—',
       target_username: (hasTargetUser || hasTargetSession) 
-        ? (log.target?.username || targetSnapshot.username || log.target_user_id || log.target_session_id) 
+        ? (targetSnapshot.username || log.target_user_id || log.target_session_id) 
         : '—',
-      target_email: hasTargetUser ? (log.target?.email || targetSnapshot.email || '—') : '—',
-      target_role: hasTargetUser ? (log.target?.role || targetSnapshot.role || '—') : (isSystemAction ? 'system' : '—'),
+      target_email: hasTargetUser ? (targetSnapshot.email || '—') : '—',
+      target_role: hasTargetUser ? (targetSnapshot.role || '—') : (isSystemAction ? 'system' : '—'),
       target_uuid: hasTargetUser ? (log.target_user_id || '—') : '—',
     }
   })
@@ -272,7 +270,7 @@ export default function AdminLogs() {
             <div>
               <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">Target</p>
               <p className="text-sm text-gray-900">
-                {selectedLog.target?.username || selectedLog.details?._target?.username || selectedLog.target_user_id || selectedLog.target_session_id || '—'}
+                {selectedLog.details?._target?.username || selectedLog.target_user_id || selectedLog.target_session_id || '—'}
               </p>
             </div>
             <div>
