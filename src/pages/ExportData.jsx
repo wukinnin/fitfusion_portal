@@ -1,11 +1,18 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
+import {
+  renderAchievementsSection,
+  renderSessionsSection,
+  renderUserAchievementsSection,
+  renderUsersSection,
+  saveExportDataPdf,
+} from '../lib/pdfReports'
 
 const TABLES = [
-  { key: 'users', label: 'Users', description: 'Player and admin profiles' },
-  { key: 'sessions', label: 'Sessions', description: 'All game session records' },
-  { key: 'achievements', label: 'Achievements', description: 'Master achievement definitions' },
-  { key: 'user_achievements', label: 'User Achievements', description: 'Achievement unlock records per user' },
+  { key: 'users', label: 'Users', description: 'Player and admin profiles', renderPdf: renderUsersSection },
+  { key: 'sessions', label: 'Sessions', description: 'All game session records', renderPdf: renderSessionsSection },
+  { key: 'achievements', label: 'Achievements', description: 'Master achievement definitions', renderPdf: renderAchievementsSection },
+  { key: 'user_achievements', label: 'User Achievements', description: 'Achievement unlock records per user', renderPdf: renderUserAchievementsSection },
 ]
 
 function toCsv(rows) {
@@ -38,6 +45,7 @@ export default function ExportData() {
   const [selected, setSelected] = useState(new Set())
   const [format, setFormat] = useState('csv')
   const [exporting, setExporting] = useState(false)
+  const [generatingReport, setGeneratingReport] = useState(false)
 
   function toggleTable(key) {
     setSelected((prev) => {
@@ -83,10 +91,51 @@ export default function ExportData() {
     return data || []
   }
 
-  async function handleExport() {
+  async function buildTableReports(tables) {
+    const tableReports = []
+    for (const table of tables) {
+      const rows = await fetchTableData(table.key)
+      tableReports.push({
+        key: table.key,
+        label: table.label,
+        rows,
+        render: table.renderPdf,
+      })
+    }
+    return tableReports
+  }
+
+  async function handleGenerateReport() {
+    if (selected.size === 0) return
+    setGeneratingReport(true)
+
+    const tables = TABLES.filter((t) => selected.has(t.key))
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+
+    try {
+      const tableReports = await buildTableReports(tables)
+      await saveExportDataPdf(tableReports, `fitfusion_report_${timestamp}.pdf`)
+
+      const user = (await supabase.auth.getUser()).data.user
+      if (user) {
+        await supabase.from('admin_logs').insert({
+          actor_user_id: user.id,
+          action: 'Generated PDF report',
+          target_kind: 'system',
+          details: { tables: [...selected], format: 'pdf', timestamp },
+        })
+      }
+    } catch (err) {
+      alert(err.message)
+    } finally {
+      setGeneratingReport(false)
+    }
+  }
+
+  async function handleRawExport() {
     if (selected.size === 0) return
     setExporting(true)
-    
+
     const tables = TABLES.filter((t) => selected.has(t.key))
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     let ext = format === 'csv' ? 'csv' : 'json'
@@ -153,7 +202,7 @@ export default function ExportData() {
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-2">Export Data</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Export tables and schema with current data as CSV or JSON. Automatically bundles as ZIP if multiple tables are selected.
+        Generate summarized PDF reports or export selected raw tables as CSV or JSON.
       </p>
 
       {/* Table Selection */}
@@ -189,9 +238,31 @@ export default function ExportData() {
         </div>
       </div>
 
-      {/* Format + Actions */}
+      {/* Report Generation */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Generate Reports</h3>
+            <p className="text-xs text-gray-500 mt-1 max-w-2xl">
+              Create a summarized PDF with useful FitFusion statistics, comparisons, and simple charts for the selected tables.
+            </p>
+          </div>
+          <button
+            disabled={selected.size === 0 || generatingReport}
+            onClick={handleGenerateReport}
+            className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {generatingReport ? 'Generating...' : 'Export as PDF'}
+          </button>
+        </div>
+      </div>
+
+      {/* Raw Export */}
       <div className="bg-white rounded-lg border border-gray-200 p-6">
-        <h3 className="text-sm font-medium text-gray-900 mb-4">Export Format</h3>
+        <h3 className="text-sm font-medium text-gray-900 mb-1">Raw Data Export</h3>
+        <p className="text-xs text-gray-500 mb-4">
+          Download table records as CSV or JSON. Multiple selected tables are bundled as a ZIP archive.
+        </p>
 
         <div className="flex items-center gap-4 mb-6">
           <label className="flex items-center gap-2 cursor-pointer">
@@ -221,10 +292,10 @@ export default function ExportData() {
         <div className="flex gap-3">
           <button
             disabled={selected.size === 0 || exporting}
-            onClick={handleExport}
+            onClick={handleRawExport}
             className="px-6 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
-            {exporting ? 'Processing...' : `Export ${selected.size > 0 ? `(${selected.size})` : ''}`}
+            {exporting ? 'Processing...' : `Export ${format.toUpperCase()} ${selected.size > 0 ? `(${selected.size})` : ''}`}
           </button>
         </div>
       </div>

@@ -1,5 +1,11 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
+import { saveAdminLogsPdf } from '../lib/pdfReports'
+
+function SortIcon({ columnKey, sortConfig }) {
+  if (sortConfig.key !== columnKey) return <span className="ml-1 text-gray-300 opacity-0 group-hover:opacity-100">↕</span>
+  return <span className="ml-1 text-blue-600">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
+}
 
 export default function AdminLogs() {
   const [logs, setLogs] = useState([])
@@ -91,11 +97,6 @@ export default function AdminLogs() {
     )
   })
 
-  const SortIcon = ({ columnKey }) => {
-    if (sortConfig.key !== columnKey) return <span className="ml-1 text-gray-300 opacity-0 group-hover:opacity-100">↕</span>
-    return <span className="ml-1 text-blue-600">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-  }
-
   function handleExportTxt() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
     const lines = filtered.map((log) => {
@@ -117,29 +118,45 @@ export default function AdminLogs() {
     URL.revokeObjectURL(url)
   }
 
+  async function handleExportPdf() {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    await saveAdminLogsPdf(filtered, `admin_logs_report_${timestamp}.pdf`)
+  }
+
   if (loading) {
     return <div><h2 className="text-xl font-semibold text-gray-900">Admin Logs</h2><p className="text-gray-400 mt-4">Loading...</p></div>
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6">
         <div>
           <h2 className="text-xl font-semibold text-gray-900">Admin Logs</h2>
           <p className="text-sm text-gray-500 mt-1">
             Audit trail of significant actions performed in the portal.
           </p>
         </div>
-        <button
-          onClick={handleExportTxt}
-          disabled={filtered.length === 0}
-          className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 cursor-pointer"
-        >
-          Export as TXT
-        </button>
       </div>
 
-      <div className="mb-4">
+      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-4">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h3 className="text-sm font-semibold text-gray-900">Generate Reports</h3>
+            <p className="text-xs text-gray-500 mt-1 max-w-2xl">
+              Create a summarized PDF report from the currently filtered audit logs, including action frequency, target distribution, and useful audit context.
+            </p>
+          </div>
+          <button
+            onClick={handleExportPdf}
+            disabled={filtered.length === 0}
+            className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            Export as PDF
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
         <input
           type="text"
           value={search}
@@ -147,6 +164,15 @@ export default function AdminLogs() {
           placeholder="Search by admin UUID, target (UUID/role), action, or date..."
           className="w-full max-w-md px-3 py-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
         />
+        <div className="flex flex-wrap gap-2 justify-end">
+          <button
+            onClick={handleExportTxt}
+            disabled={filtered.length === 0}
+            className="px-4 py-2 bg-white text-gray-700 text-sm font-medium rounded border border-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            Export as TXT
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
@@ -154,19 +180,19 @@ export default function AdminLogs() {
           <thead>
             <tr className="bg-gray-50 border-b border-gray-200">
               <th onClick={() => handleSort('created_at')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100 whitespace-nowrap">
-                Timestamp <SortIcon columnKey="created_at" />
+                Timestamp <SortIcon columnKey="created_at" sortConfig={sortConfig} />
               </th>
               <th onClick={() => handleSort('admin_uuid')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100 whitespace-nowrap">
-                Admin UUID <SortIcon columnKey="admin_uuid" />
+                Admin UUID <SortIcon columnKey="admin_uuid" sortConfig={sortConfig} />
               </th>
               <th onClick={() => handleSort('action')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
-                Action <SortIcon columnKey="action" />
+                Action <SortIcon columnKey="action" sortConfig={sortConfig} />
               </th>
               <th onClick={() => handleSort('target_role')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100">
-                Target Role <SortIcon columnKey="target_role" />
+                Target Role <SortIcon columnKey="target_role" sortConfig={sortConfig} />
               </th>
               <th onClick={() => handleSort('target_uuid')} className="text-left px-4 py-3 font-medium text-gray-500 cursor-pointer group hover:bg-gray-100 whitespace-nowrap">
-                Target UUID <SortIcon columnKey="target_uuid" />
+                Target UUID <SortIcon columnKey="target_uuid" sortConfig={sortConfig} />
               </th>
               <th className="text-left px-4 py-3 font-medium text-gray-500">Details</th>
             </tr>
@@ -274,4 +300,3 @@ function Modal({ title, children, onClose }) {
     </div>
   )
 }
-

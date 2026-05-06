@@ -3,14 +3,16 @@ export const testCase = {
   module: 'Data Export and Audit Trail Module',
   screen: 'Admin Logs Page',
   description:
-    'Validate by searching the Admin Logs Page and exporting the filtered logs as TXT.',
+    'Validate by searching the Admin Logs Page and exporting the filtered logs as PDF or TXT.',
   expectedResult:
-    'Able to filter audit records and download the displayed log entries as a text file.',
+    'Able to filter audit records and download the displayed log entries as a PDF report or text file.',
 }
 
 export function verifySpecification() {
   return (
     testCase.screen === 'Admin Logs Page' &&
+    testCase.description.includes('PDF or TXT') &&
+    testCase.expectedResult.includes('PDF report') &&
     testCase.expectedResult.includes('text file')
   )
 }
