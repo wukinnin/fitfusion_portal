@@ -120,7 +120,7 @@ export default function AdminLogs() {
 
   async function handleExportPdf() {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-    await saveAdminLogsPdf(filtered, `admin_logs_report_${timestamp}.pdf`)
+    await saveAdminLogsPdf(processedLogs, `admin_logs_report_${timestamp}.pdf`)
   }
 
   if (loading) {
@@ -141,14 +141,17 @@ export default function AdminLogs() {
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-gray-900">Generate Reports</h3>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
+              Generate Reports
+            </p>
+            <h3 className="text-sm font-semibold text-gray-900">Admin activity report</h3>
             <p className="text-xs text-gray-500 mt-1 max-w-2xl">
-              Create a summarized PDF report from the currently filtered audit logs, including action frequency, target distribution, and useful audit context.
+              Create a summary-only PDF from all loaded audit logs, including action frequency, target distribution, and factual audit statements.
             </p>
           </div>
           <button
             onClick={handleExportPdf}
-            disabled={filtered.length === 0}
+            disabled={processedLogs.length === 0}
             className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             Export as PDF

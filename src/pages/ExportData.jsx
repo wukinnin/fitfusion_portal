@@ -202,13 +202,45 @@ export default function ExportData() {
     <div>
       <h2 className="text-xl font-semibold text-gray-900 mb-2">Export Data</h2>
       <p className="text-sm text-gray-500 mb-6">
-        Generate summarized PDF reports or export selected raw tables as CSV or JSON.
+        Generate standard PDF reports or export selected raw tables as CSV or JSON.
       </p>
 
-      {/* Table Selection */}
+      {/* Report Generation */}
+      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-xs font-medium text-gray-400 uppercase tracking-wider mb-1">
+              Generate Reports
+            </p>
+            <h3 className="text-sm font-semibold text-gray-900">System metrics report</h3>
+            <p className="text-xs text-gray-500 mt-1 max-w-2xl">
+              Create a summary-only PDF with metric tables, factual bullets, and restrained charts for the selected data sections.
+            </p>
+            <p className="text-xs text-gray-400 mt-2">
+              {selected.size === 0
+                ? 'Select at least one table below to enable report generation.'
+                : `${selected.size} report section${selected.size === 1 ? '' : 's'} selected.`}
+            </p>
+          </div>
+          <button
+            disabled={selected.size === 0 || generatingReport}
+            onClick={handleGenerateReport}
+            className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {generatingReport ? 'Generating...' : 'Export as PDF'}
+          </button>
+        </div>
+      </div>
+
+      {/* Report Scope */}
       <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-medium text-gray-900">Select Tables</h3>
+          <div>
+            <h3 className="text-sm font-medium text-gray-900">Report Data Scope</h3>
+            <p className="text-xs text-gray-500 mt-1">
+              The PDF report analyzes only the tables selected here.
+            </p>
+          </div>
           <button
             onClick={selectAll}
             className="text-xs text-blue-600 hover:text-blue-800 cursor-pointer"
@@ -216,7 +248,6 @@ export default function ExportData() {
             {selected.size === TABLES.length ? 'Deselect All' : 'Select All'}
           </button>
         </div>
-
         <div className="space-y-2">
           {TABLES.map((table) => (
             <label
@@ -235,25 +266,6 @@ export default function ExportData() {
               </div>
             </label>
           ))}
-        </div>
-      </div>
-
-      {/* Report Generation */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-gray-900">Generate Reports</h3>
-            <p className="text-xs text-gray-500 mt-1 max-w-2xl">
-              Create a summarized PDF with useful FitFusion statistics, comparisons, and simple charts for the selected tables.
-            </p>
-          </div>
-          <button
-            disabled={selected.size === 0 || generatingReport}
-            onClick={handleGenerateReport}
-            className="px-5 py-2 bg-gray-900 text-white text-sm font-medium rounded hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-          >
-            {generatingReport ? 'Generating...' : 'Export as PDF'}
-          </button>
         </div>
       </div>
 
